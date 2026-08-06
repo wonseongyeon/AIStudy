@@ -1,0 +1,1463 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FBX → DXF Extractor v1 | DL E&amp;C</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Syne:wght@400;600;700&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --vp-bg:#0a0b0f;
+  --bg :#e8ebf4;
+  --bg2:#ffffff;
+  --bg3:#dde2ee;
+  --bg4:#d0d6e8;
+  --b  :#b8c2d8;
+  --b2 :#9aaac4;
+  --t  :#0e1525;
+  --t2 :#2a3550;
+  --t3 :#5a6a88;
+  --tb-bg:#1e2a42;
+  --tb-b :#283550;
+  --ac :#1a6fd4;
+  --ac2:#0f52a8;
+  --grn:#007a48;
+  --red:#c02020;
+  --amb:#c07000;
+  --pile-col:#8a6200;
+  --pile-bright:#b07800;
+  --mono:'JetBrains Mono',monospace;
+  --syne:'Syne',sans-serif;
+}
+html,body{height:100%;background:var(--bg);color:var(--t);font-family:var(--mono);font-size:13px;overflow:hidden}
+.app{display:grid;grid-template-rows:50px 1fr;height:100vh}
+
+/* ── 툴바 ── */
+.tb{display:flex;align-items:center;gap:10px;padding:0 18px;
+    background:var(--tb-bg);border-bottom:2px solid var(--ac2);position:relative;z-index:10}
+.logo{font-family:var(--syne);font-size:16px;font-weight:700;letter-spacing:-.02em;color:#e8ecf4}
+.logo span{color:#4f9eff}
+.sep{width:1px;height:18px;background:var(--tb-b);flex-shrink:0}
+.tag{font-size:10px;color:#8a9ab8;background:rgba(255,255,255,.08);border:1px solid var(--tb-b);
+     border-radius:4px;padding:2px 8px;letter-spacing:.05em}
+.tag b{color:#6fb5ff;font-weight:500}
+.tbr{margin-left:auto;display:flex;gap:6px;align-items:center}
+.btn{padding:5px 12px;border-radius:5px;border:1px solid var(--b2);background:var(--bg2);
+     color:var(--t2);font-family:var(--mono);font-size:11px;cursor:pointer;transition:all .15s;white-space:nowrap}
+.btn:hover:not(:disabled){border-color:var(--ac);color:var(--ac);background:rgba(26,111,212,.06)}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn-p{background:var(--ac);color:#fff;border-color:var(--ac);font-weight:600;box-shadow:0 2px 10px rgba(26,111,212,.3)}
+.btn-p:hover:not(:disabled){background:var(--ac2);border-color:var(--ac2)}
+.btn-p:disabled{background:var(--b2);color:var(--t3);border-color:var(--b2);box-shadow:none}
+.tb .btn{background:rgba(255,255,255,.08);border-color:var(--tb-b);color:#c8d4e8}
+.tb .btn:hover:not(:disabled){border-color:#4f9eff;color:#4f9eff;background:rgba(79,158,255,.1)}
+.tb .btn-p{background:#1a6fd4;color:#fff;border-color:#1a6fd4}
+.tb .btn-p:hover:not(:disabled){background:#0f52a8;border-color:#0f52a8}
+.tb .btn-p:disabled{background:#283550;color:#5a6a80;border-color:#283550;box-shadow:none}
+
+/* ── 레이아웃 ── */
+.main{display:grid;grid-template-columns:286px 1fr;overflow:hidden;height:100%}
+
+/* ── 좌측 패널 ── */
+.left{background:var(--bg);border-right:1px solid var(--b);display:flex;flex-direction:column;overflow-y:auto}
+.left::-webkit-scrollbar{width:5px}.left::-webkit-scrollbar-thumb{background:var(--b2);border-radius:3px}
+.sec{border-bottom:1px solid var(--b);padding:13px 15px}
+
+.st{font-size:10px;letter-spacing:.15em;color:var(--t2);text-transform:uppercase;
+    margin-bottom:10px;font-weight:700;border-left:3px solid var(--ac);padding-left:7px}
+
+/* 드롭존 */
+.dz{border:2px dashed var(--b2);border-radius:7px;padding:12px 10px;text-align:center;cursor:pointer;
+    position:relative;transition:all .2s;background:var(--bg2);margin-bottom:7px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.dz:hover,.dz.ov{border-color:var(--ac);background:rgba(26,111,212,.05)}
+.dz input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.dz-l{font-size:12px;color:var(--t2);line-height:1.8}
+.dz-l strong{display:block;font-size:11px;color:var(--t);margin-bottom:3px;letter-spacing:.05em;font-weight:700}
+.fi{font-size:11px;color:var(--t3);word-break:break-all;font-weight:500}
+.fi .fn{color:var(--ac);font-weight:600}
+
+/* 진행 스텝 */
+.pbar-wrap{height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;margin:7px 0}
+.pbar{height:100%;background:linear-gradient(90deg,var(--ac2),var(--ac));width:0%;transition:width .3s;border-radius:3px}
+.pct-txt{font-size:11px;color:var(--t3);text-align:right;font-weight:600}.pct-txt span{color:var(--ac)}
+.step{display:flex;align-items:center;gap:9px;padding:4px 0}
+.sd{width:8px;height:8px;border-radius:50%;border:2px solid var(--b2);flex-shrink:0;transition:all .2s}
+.sd.ac{border-color:var(--ac);background:var(--ac);box-shadow:0 0 6px rgba(26,111,212,.5)}
+.sd.dn{border-color:var(--grn);background:var(--grn)}
+.sl{font-size:11px;color:var(--t3);flex:1;font-weight:500}
+.sl.ac{color:var(--ac);font-weight:600}.sl.dn{color:var(--grn);font-weight:600}
+.sp{font-size:11px;color:var(--t3);min-width:32px;text-align:right;font-weight:600}
+
+/* 로그 */
+.log{background:var(--bg2);border:1px solid var(--b);border-radius:5px;padding:8px 10px;
+     font-size:11px;color:var(--t2);max-height:140px;overflow-y:auto;line-height:2;font-weight:500}
+.log::-webkit-scrollbar{width:4px}.log::-webkit-scrollbar-thumb{background:var(--b2)}
+.log .ok{color:var(--grn);font-weight:600}.log .er{color:var(--red);font-weight:600}.log .wn{color:var(--amb);font-weight:600}
+
+/* 레전드 카드 */
+.legend{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:3px 0 9px}
+.leg-card{background:var(--bg2);border-radius:6px;padding:8px 10px;border-left:3px solid transparent;
+          display:flex;flex-direction:column;gap:3px;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+.leg-card .lc-label{font-size:10px;color:var(--t3);letter-spacing:.04em;font-weight:600}
+.leg-card .lc-cnt{font-size:11px;font-weight:700;color:var(--t)}
+.leg-card .lc-line{height:2px;border-radius:1px;margin-top:4px}
+.sbar{display:flex;align-items:center;gap:7px;margin:4px 0;font-size:10px}
+.sbar-track{flex:1;height:5px;background:var(--bg3);border-radius:3px;overflow:hidden}
+.sbar-fill{height:100%;border-radius:3px;transition:width .4s}
+.sbar-val{min-width:44px;text-align:right;color:var(--t3);font-size:10px;font-weight:600}
+.sr{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12px;color:var(--t2);font-weight:500}
+.sr span{flex:1}
+.sr input[type=number]{background:var(--bg2);border:1px solid var(--b2);color:var(--t);
+  padding:4px 8px;border-radius:4px;font-family:var(--mono);font-size:12px;width:90px;font-weight:600}
+.sr input[type=number]:focus{outline:none;border-color:var(--ac)}
+
+/* 정보 박스들 */
+.pipebox{background:var(--bg2);border-left:3px solid var(--red);border-radius:5px;padding:9px 12px;
+         font-size:11px;color:var(--t2);line-height:2.1;margin:4px 0;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.pipebox b{color:var(--red);font-weight:700}
+.teebox{background:var(--bg2);border-left:3px solid #cc6600;border-radius:5px;padding:9px 12px;
+        font-size:11px;color:var(--t2);line-height:2.1;margin:4px 0;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.teebox b{color:#cc6600;font-weight:700}
+.pilebox{background:var(--bg2);border-left:3px solid var(--pile-col);border-radius:5px;padding:9px 12px;
+         font-size:11px;color:var(--t2);line-height:2.1;margin:4px 0;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.pilebox b{color:var(--pile-col);font-weight:700}
+.crossbox{background:var(--bg2);border-left:3px solid var(--grn);border-radius:5px;padding:8px 11px;
+          font-size:11px;color:var(--t2);line-height:2.1;margin:6px 0;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.crossbox b{color:var(--grn);font-weight:600}
+.zbox{background:var(--bg2);border-left:3px solid var(--ac);border-radius:5px;padding:9px 11px;
+      font-size:11px;color:var(--t2);line-height:2.1;margin:6px 0;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.zbox b{color:var(--ac);font-weight:600}
+
+/* 점선 설정 */
+.dash-row{display:flex;align-items:center;gap:7px;padding:5px 0;font-size:11px;color:var(--t2);font-weight:500}
+.dash-row span{flex:1}
+.dash-row input[type=number]{background:var(--bg2);border:1px solid var(--b2);color:var(--t);
+  padding:3px 8px;border-radius:4px;font-family:var(--mono);font-size:11px;width:80px;font-weight:600}
+.dash-row input[type=number]:focus{outline:none;border-color:var(--ac)}
+
+/* 점선 스케일 안내 박스 */
+.ltscale-box{background:rgba(26,111,212,.08);border:1px solid rgba(26,111,212,.22);border-radius:6px;
+             padding:9px 11px;font-size:11px;color:var(--t2);line-height:2;margin:5px 0}
+.ltscale-box b{color:var(--ac);font-weight:700}
+
+/* 뷰포트 */
+.vp{position:relative;background:var(--vp-bg);overflow:hidden}
+#c3d{display:block;width:100%;height:100%}
+.vov{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.vov.h{display:none}
+.vot{font-size:12px;color:#6a748a;text-align:center;line-height:2.4;
+     background:rgba(10,11,15,.93);padding:24px 36px;border-radius:10px;border:1px solid #1e2235}
+.vtop{position:absolute;top:10px;left:10px;display:flex;gap:5px}
+.vctr{position:absolute;bottom:10px;left:10px;display:flex;gap:5px}
+.vhi{position:absolute;top:10px;right:10px;font-size:10px;color:#8a95b0;
+     background:rgba(10,11,15,.88);padding:8px 11px;border-radius:6px;border:1px solid #252d45;
+     line-height:2.2;text-align:right;font-weight:500}
+.vlegend{position:absolute;bottom:50px;right:10px;background:rgba(10,11,15,.95);
+         border:1px solid #252d45;border-radius:8px;padding:11px 15px;font-size:11px;line-height:2.4}
+.vlr{display:flex;align-items:center;gap:9px}
+
+/* progress overlay */
+.progress-overlay{position:absolute;inset:0;z-index:300;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;background:rgba(10,11,15,.9);
+  backdrop-filter:blur(4px);pointer-events:none;transition:opacity .3s}
+.progress-overlay.h{opacity:0;pointer-events:none}
+.po-title{font-family:var(--syne);font-size:22px;font-weight:700;color:#e8ecf4;margin-bottom:6px}
+.po-sub{font-size:12px;color:#8a94aa;margin-bottom:24px;min-height:18px}
+.po-pct{font-size:36px;font-weight:700;font-family:var(--syne);color:#4f9eff;letter-spacing:-.04em;margin-bottom:4px}
+.po-pct span{font-size:13px;color:#5a6480;font-family:var(--mono);font-weight:400;margin-left:4px}
+.po-bar-wrap{width:460px;max-width:80vw;height:10px;background:#1e2235;border-radius:5px;overflow:hidden;margin-bottom:10px}
+.po-bar{height:100%;border-radius:5px;background:linear-gradient(90deg,#0f52a8,#4f9eff);transition:width .25s;width:0%}
+.po-steps{display:flex;gap:24px;margin-top:18px}
+.po-step{display:flex;flex-direction:column;align-items:center;gap:5px;min-width:90px}
+.po-step-dot{width:10px;height:10px;border-radius:50%;border:2px solid #1e2235;transition:all .2s}
+.po-step-dot.ac{border-color:#4f9eff;background:#4f9eff;box-shadow:0 0 8px rgba(79,158,255,.6)}
+.po-step-dot.dn{border-color:#00cc88;background:#00cc88}
+.po-step-lbl{font-size:10px;color:#5a6480;text-align:center;line-height:1.4}
+.po-step-lbl.ac{color:#4f9eff}.po-step-lbl.dn{color:#00cc88}
+.po-step-pct{font-size:11px;font-weight:600;font-family:var(--syne);color:#5a6480}
+.po-step-pct.ac{color:#4f9eff}.po-step-pct.dn{color:#00cc88}
+.po-eta{font-size:10px;color:#5a6480;margin-top:8px}
+
+/* inspector */
+#inspector{position:absolute;top:56px;right:10px;width:290px;max-height:calc(100% - 70px);
+  background:rgba(10,11,15,.97);border:1px solid #252d45;border-radius:9px;font-size:11px;
+  overflow:hidden;display:none;flex-direction:column;z-index:200;
+  box-shadow:0 8px 32px rgba(0,0,0,.7);backdrop-filter:blur(8px)}
+#inspector.sh{display:flex}
+.insp-hdr{display:flex;align-items:center;gap:8px;padding:10px 13px;background:#141720;border-bottom:1px solid #1e2235}
+.insp-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.insp-ttl{font-size:11px;font-weight:700;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#e8ecf4}
+.insp-x{width:18px;height:18px;border-radius:3px;border:1px solid #252d45;background:transparent;
+         color:#5a6480;cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center}
+.insp-x:hover{border-color:#4f9eff;color:#4f9eff}
+.insp-body{padding:13px;overflow-y:auto;flex:1}
+.insp-body::-webkit-scrollbar{width:3px}.insp-body::-webkit-scrollbar-thumb{background:#252d45}
+.nm-box{background:#0a0b0f;border:1px solid #252d45;border-radius:5px;padding:8px 10px;margin-bottom:10px;word-break:break-all;line-height:1.8}
+.nm-lbl{font-size:9px;color:#3d4560;letter-spacing:.15em;text-transform:uppercase;margin-bottom:2px}
+.nm-val{font-size:12px;color:#FFD600;font-weight:700}
+.nm-val.empty{color:#3d4560;font-style:italic;font-size:10px;font-weight:400}
+.badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700;margin-bottom:10px;border:1px solid transparent}
+.igrid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:10px}
+.icell{background:#141720;border-radius:4px;padding:6px 8px}
+.icell .ilbl{font-size:9px;color:#4a5570;letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px}
+.icell .ival{font-size:11px;color:#d8e0f0;font-weight:600}
+.icell .ival.hi{color:#00E5A0}.icell .ival.warn{color:#FFD600}
+.score-wrap{margin-bottom:10px}
+.score-lbl{display:flex;justify-content:space-between;font-size:9px;color:#3d4560;margin-bottom:5px}
+.score-track{height:8px;background:#1e2235;border-radius:4px;overflow:hidden}
+.score-fill{height:100%;border-radius:4px;transition:width .4s}
+
+/* toast */
+.toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--bg2);
+       border:1px solid var(--b2);color:var(--t);font-family:var(--mono);font-size:12px;
+       padding:9px 20px;border-radius:7px;z-index:9999;opacity:0;transition:opacity .25s;
+       pointer-events:none;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.15);font-weight:600}
+.toast.sh{opacity:1}
+.toast.ok{border-color:var(--grn);color:var(--grn)}
+.toast.er{border-color:var(--red);color:var(--red)}
+.toast.wn{border-color:var(--amb);color:var(--amb)}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="tb">
+
+  <!-- ★ DL E&C 로고 블록 -->
+  <div style="display:flex;align-items:center;gap:0;flex-shrink:0;border-right:1px solid #2e3f5e;padding-right:13px;margin-right:2px">
+    <img src="data:image/png;base64,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" style="height:28px;width:auto;display:block;image-rendering:auto" alt="DL">
+  </div>
+
+  <span class="logo">FBX → <span>DXF</span> Plan</span>
+
+  <!-- ★ 버전 배지 -->
+  <span style="font-family:var(--mono);font-size:10px;font-weight:700;color:#4f9eff;background:rgba(26,111,212,.18);border:1px solid rgba(26,111,212,.45);border-radius:4px;padding:2px 8px;letter-spacing:.07em;flex-shrink:0">v1</span>
+
+  <div class="sep"></div>
+  <span class="tag">Pipe <b>tri=128,vert≥90 또는 tri=72,vert≥72</b></span>
+  <span class="tag">Tee <b>tri=256 &amp; vert≥196</b></span>
+  <span class="tag">Pile <b>수직 &amp; h≥3m &amp; 기준면 완전 아래</b></span>
+  <div class="tbr">
+    <button class="btn" onclick="resetAll()">↺ 초기화</button>
+    <button class="btn btn-p" id="btn-extract" disabled>&#9654; 2D 추출</button>
+    <button class="btn" id="btn-dxf" onclick="exportDXF()" disabled>&#8595; DXF 저장 (mm)</button>
+  </div>
+</div>
+
+<div class="main">
+<!-- LEFT -->
+<div class="left">
+
+  <div class="sec">
+    <div class="st">FBX 파일</div>
+    <div class="dz" id="dz"
+         ondragover="event.preventDefault();this.classList.add('ov')"
+         ondragleave="this.classList.remove('ov')"
+         ondrop="event.preventDefault();this.classList.remove('ov');loadFile(event.dataTransfer.files[0])">
+      <input type="file" accept=".fbx" onchange="loadFile(this.files[0]);this.value=''">
+      <div class="dz-l"><strong>FBX FILE</strong>클릭 또는 드래그 &amp; 드롭</div>
+    </div>
+    <div class="fi" id="fi">파일 없음</div>
+  </div>
+
+  <div class="sec">
+    <div class="st">기준 Z 레벨</div>
+    <div class="sr"><span>Z 기준값 (m)</span><input type="number" id="opt-z" value="0" step="0.1"></div>
+    <div class="zbox" style="margin-top:6px">
+      Z 범위: <b id="zrange-txt">—</b><br>
+      완전 이상·걸침 → <b style="color:#007a48">초록 · 실선</b><br>
+      완전 미만 → <b style="color:#777">회색 · 점선</b>
+    </div>
+    <div class="crossbox">
+      <b>✔ 걸침(crossing) 판정</b><br>
+      zMin &lt; Z기준 &amp;&amp; zMax ≥ Z기준<br>
+      → 실선(초록)으로 DXF 출력됩니다
+    </div>
+    <div style="font-size:10px;color:var(--t3);margin-top:5px;font-weight:500">※ 변경 후 &#9654; 재실행</div>
+  </div>
+
+  <div class="sec">
+    <div class="st">점선 패턴 설정</div>
+    <div class="ltscale-box">
+      패턴값(mm) → AutoCAD <b>PLAN_DASHED</b> 라인타입<br>
+      <b>$LTSCALE = 1.0</b> 고정 · 엔티티 코드 48 명시 적용<br>
+      1:100 출력 시 → 대시 <b>50mm</b> = 종이 0.5mm
+    </div>
+    <div class="dash-row">
+      <span>대시 길이 (mm)</span>
+      <input type="number" id="dash-len" value="50" min="1" step="5">
+    </div>
+    <div class="dash-row">
+      <span>간격 길이 (mm)</span>
+      <input type="number" id="gap-len" value="25" min="1" step="5">
+    </div>
+    <div style="font-size:10px;color:var(--t3);margin-top:5px;font-weight:500;
+                background:var(--bg2);padding:7px 10px;border-radius:4px;border:1px solid var(--b);line-height:1.9">
+      <b style="color:var(--t2)">권장값</b><br>
+      1:100 → 대시 50 / 간격 25<br>
+      1:200 → 대시 100 / 간격 50<br>
+      1:50  → 대시 25  / 간격 12
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="st">형상 카운트</div>
+    <div class="legend">
+      <div class="leg-card" style="border-color:#c02020">
+        <div class="lc-label">직선 Pipe</div><div class="lc-cnt" id="lc-pipe">—</div>
+        <div class="lc-line" style="background:#c02020"></div>
+      </div>
+      <div class="leg-card" style="border-color:#cc6600">
+        <div class="lc-label">Tee (분기)</div><div class="lc-cnt" id="lc-tee">—</div>
+        <div class="lc-line" style="background:#cc6600"></div>
+      </div>
+      <div class="leg-card" style="border-color:var(--pile-col)">
+        <div class="lc-label">Pile (파일)</div><div class="lc-cnt" id="lc-pile">—</div>
+        <div class="lc-line" style="background:var(--pile-col)"></div>
+      </div>
+      <div class="leg-card" style="border-color:#5a6a88">
+        <div class="lc-label">일반 구조물</div><div class="lc-cnt" id="lc-normal">—</div>
+        <div class="lc-line" style="background:#5a6a88"></div>
+      </div>
+    </div>
+    <div id="crossing-info" style="display:none;font-size:11px;background:rgba(0,122,72,.08);
+         border-left:3px solid var(--grn);border-radius:5px;padding:7px 10px;line-height:2;margin-bottom:7px;font-weight:500">
+      <b style="color:var(--grn)">걸침 형상</b><br>
+      Pipe: <span id="cx-pipe">0</span> · Tee: <span id="cx-tee">0</span> · 일반: <span id="cx-normal">0</span>
+    </div>
+    <div id="stat-section" style="display:none">
+      <div class="sbar"><span style="color:var(--t2);min-width:58px;font-size:10px;font-weight:600">Pipe</span><div class="sbar-track"><div class="sbar-fill" id="sb-pipe" style="background:#c02020;width:0%"></div></div><span class="sbar-val" id="sv-pipe">0</span></div>
+      <div class="sbar"><span style="color:var(--t2);min-width:58px;font-size:10px;font-weight:600">Tee</span><div class="sbar-track"><div class="sbar-fill" id="sb-tee" style="background:#cc6600;width:0%"></div></div><span class="sbar-val" id="sv-tee">0</span></div>
+      <div class="sbar"><span style="color:var(--t2);min-width:58px;font-size:10px;font-weight:600">Pile</span><div class="sbar-track"><div class="sbar-fill" id="sb-pile" style="background:var(--pile-col);width:0%"></div></div><span class="sbar-val" id="sv-pile">0</span></div>
+      <div class="sbar"><span style="color:var(--t2);min-width:58px;font-size:10px;font-weight:600">일반</span><div class="sbar-track"><div class="sbar-fill" id="sb-normal" style="background:#5a6a88;width:0%"></div></div><span class="sbar-val" id="sv-normal">0</span></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="st">진행</div>
+    <div class="step"><div class="sd" id="d1"></div><span class="sl" id="l1">FBX 파싱</span><span class="sp" id="p1"></span></div>
+    <div class="step"><div class="sd" id="d2"></div><span class="sl" id="l2">분류 + 엣지 추출</span><span class="sp" id="p2"></span></div>
+    <div class="step"><div class="sd" id="d3"></div><span class="sl" id="l3">3D 렌더</span><span class="sp" id="p3"></span></div>
+    <div class="pbar-wrap"><div class="pbar" id="pb"></div></div>
+    <div class="pct-txt">진행률 <span id="pct">0%</span></div>
+  </div>
+
+  <div class="sec"><div class="st">로그</div><div class="log" id="log">FBX 파일을 업로드하세요</div></div>
+
+  <div class="sec">
+    <div class="st">형상 판별 기준</div>
+    <div class="pipebox">
+      <b>🔴 Pipe (직선관)</b><br>
+      ① 삼각형 = <b>128</b> &amp; 정점 ≥ <b>90</b><br>
+      ② 삼각형 = <b>72</b> &amp; 정점 ≥ <b>72</b><br>
+      → <b style="color:var(--grn)">납작(dZ ≤ dXY×10%) → 일반구조물</b> (원형기초)<br>
+      → 수직 + 높이 ≥ 3m → <b>Pile</b><br>
+      → 수직 + 높이 &lt; 3m → <b>일반구조물</b><br>
+      → 수평/경사 → <b>Pipe</b> (바운딩박스 4선)
+    </div>
+    <div class="teebox">
+      <b>🟠 Tee (분기관)</b><br>
+      삼각형 = <b>256</b> &amp; 정점 ≥ <b>196</b><br>
+      <span style="color:var(--t3)">→ 3D 엣지 그대로 2D 투영</span>
+    </div>
+    <div class="pilebox">
+      <b style="color:var(--pile-col)">🟤 Pile (파일)</b><br>
+      ① Pipe조건(tri=128,vert≥90)<br>
+      ② <b>소형: tri≥12 &amp; vert≥8</b> — <b style="color:var(--red)">신규</b><br>
+      두 조건 공통: 수직 (dZ ≥ max(dX,dY)×3)<br>
+      높이 ≥ <b>3m</b><br>
+      <b style="color:var(--red)">★ 기준면과 걸치거나 위 → normal 재분류</b><br>
+      <span style="color:var(--t3)">→ 기준면 완전 아래일 때만 상단 단면 출력</span>
+    </div>
+    <div id="classify-result-txt" style="font-size:10px;color:var(--t3);margin-top:7px;font-weight:500"></div>
+  </div>
+
+  <div class="sec">
+    <div class="st">DXF 색상 / 레이어 / 단위</div>
+    <div style="font-size:11px;color:var(--t2);background:var(--bg2);border-left:3px solid var(--b2);
+                border-radius:5px;padding:9px 11px;line-height:2.1;box-shadow:0 1px 4px rgba(0,0,0,.06);font-weight:500">
+      <b style="color:var(--grn)">기준 이상·걸침 (실선)</b> → ACI 3 (초록)<br>
+      <b style="color:#777">기준 완전 미만 (점선)</b> → ACI 8 (회색)<br>
+      <b style="color:var(--pile-col)">Pile → ACI 2 (노란, 점선)</b><br>
+      레이어: PIPE / TEE / NORMAL (실선)<br>
+      　　　　PIPE_DASH / TEE_DASH / NORM_DASH (점선)<br>
+      　　　　PILE (어두운 노란 점선)<br>
+      출력 단위: <b style="color:var(--ac)">mm</b> (× 1000)
+    </div>
+  </div>
+
+</div><!-- /left -->
+
+<!-- VIEWPORT -->
+<div class="vp" id="vp">
+  <canvas id="c3d"></canvas>
+  <div class="vov" id="vov">
+    <div class="vot">FBX 파일을 업로드하면<br>3D 미리보기가 표시됩니다<br><br>LMB — 회전 &nbsp;|&nbsp; MMB — 이동 &nbsp;|&nbsp; 스크롤 — 줌</div>
+  </div>
+  <div class="progress-overlay h" id="po">
+    <div class="po-title" id="po-title">처리 중...</div>
+    <div class="po-sub" id="po-sub"></div>
+    <div class="po-pct" id="po-pct">0%<span id="po-eta"></span></div>
+    <div class="po-bar-wrap"><div class="po-bar" id="po-bar"></div></div>
+    <div class="po-steps">
+      <div class="po-step"><div class="po-step-dot" id="po-d1"></div><div class="po-step-lbl" id="po-l1">FBX 파싱</div><div class="po-step-pct" id="po-p1">—</div></div>
+      <div class="po-step"><div class="po-step-dot" id="po-d2"></div><div class="po-step-lbl" id="po-l2">분류·엣지 추출</div><div class="po-step-pct" id="po-p2">—</div></div>
+      <div class="po-step"><div class="po-step-dot" id="po-d3"></div><div class="po-step-lbl" id="po-l3">3D 렌더</div><div class="po-step-pct" id="po-p3">—</div></div>
+    </div>
+    <div class="po-eta" id="po-eta-row"></div>
+  </div>
+  <div class="vtop">
+    <button class="btn" onclick="setView('top')" style="background:rgba(10,11,15,.75);border-color:#252d45;color:#9aa5be;padding:4px 10px;font-size:11px;font-weight:600">TOP</button>
+    <button class="btn" onclick="setView('front')" style="background:rgba(10,11,15,.75);border-color:#252d45;color:#9aa5be;padding:4px 10px;font-size:11px;font-weight:600">FRONT</button>
+    <button class="btn" onclick="setView('side')" style="background:rgba(10,11,15,.75);border-color:#252d45;color:#9aa5be;padding:4px 10px;font-size:11px;font-weight:600">SIDE</button>
+    <button class="btn" onclick="setView('iso')" style="background:rgba(10,11,15,.75);border-color:#252d45;color:#9aa5be;padding:4px 10px;font-size:11px;font-weight:600">ISO</button>
+  </div>
+  <div class="vctr">
+    <button class="btn" onclick="fitView()" style="background:rgba(10,11,15,.75);border-color:#252d45;color:#9aa5be;font-size:11px;font-weight:600">⊡ 전체</button>
+    <button class="btn" id="btn-wire" onclick="toggleWire()" style="background:rgba(10,11,15,.75);border-color:#252d45;color:#9aa5be;font-size:11px;font-weight:600">◻ 와이어</button>
+    <button class="btn" id="btn-color" onclick="toggleColor()" style="background:rgba(10,11,15,.75);border-color:#FF3D3D;color:#FF3D3D;font-size:11px;font-weight:600">◈ 색상</button>
+  </div>
+  <div class="vhi" id="vhi">LMB — 회전<br>MMB — 이동<br>스크롤 — 줌<br><span style="color:#5fa8ff;font-weight:600">클릭 — 형상 검사</span></div>
+  <div class="vlegend" id="vlegend" style="display:none">
+    <div class="vlr"><div style="width:10px;height:10px;border-radius:50%;background:#00cc44;box-shadow:0 0 5px #00cc44;flex-shrink:0"></div><span style="color:#00cc44;font-weight:600">기준선 걸침 (초록)</span></div>
+    <div class="vlr"><div style="width:10px;height:10px;border-radius:50%;background:#FF3D3D;flex-shrink:0"></div><span style="color:#FF3D3D;font-weight:600">Pipe / Tee</span></div>
+    <div class="vlr"><div style="width:10px;height:10px;border-radius:50%;background:#b07800;flex-shrink:0"></div><span style="color:#b07800;font-weight:600">Pile (파일)</span></div>
+    <div class="vlr"><div style="width:10px;height:10px;border-radius:50%;background:#8890A0;flex-shrink:0"></div><span style="color:#8890A0;font-weight:600">콘크리트 구조물</span></div>
+    <div style="border-top:1px solid #252d45;margin:6px 0"></div>
+    <div class="vlr"><div style="width:22px;height:2px;background:#00cc44;flex-shrink:0;border-radius:1px"></div><span style="color:#00cc44;font-weight:600">DXF 실선 (이상·걸침)</span></div>
+    <div class="vlr"><div style="width:22px;height:2px;flex-shrink:0;background:repeating-linear-gradient(90deg,#888 0,#888 5px,transparent 5px,transparent 8px)"></div><span style="color:#8890A0;font-weight:600">DXF 점선 (완전 미만)</span></div>
+    <div style="border-top:1px solid #252d45;margin:6px 0"></div>
+    <div class="vlr"><div style="width:18px;height:10px;background:rgba(0,170,255,0.25);border:1px solid rgba(0,170,255,0.6);flex-shrink:0"></div><span style="color:#00aaff;font-weight:600">기준 Z 면</span></div>
+  </div>
+  <div id="inspector">
+    <div class="insp-hdr">
+      <div class="insp-dot" id="insp-dot"></div>
+      <div class="insp-ttl" id="insp-ttl">형상 정보</div>
+      <button class="insp-x" onclick="closeInspector()">✕</button>
+    </div>
+    <div class="insp-body">
+      <div class="nm-box"><div class="nm-lbl">FBX Object Name</div><div class="nm-val" id="insp-name">—</div></div>
+      <div id="insp-badge" class="badge">—</div>
+      <div class="igrid">
+        <div class="icell"><div class="ilbl">정점 수</div><div class="ival" id="insp-verts">—</div></div>
+        <div class="icell"><div class="ilbl">삼각형 수</div><div class="ival" id="insp-tris">—</div></div>
+        <div class="icell"><div class="ilbl">크기 X·Y·Z</div><div class="ival" id="insp-size" style="font-size:10px">—</div></div>
+        <div class="icell"><div class="ilbl">종횡비</div><div class="ival" id="insp-ar">—</div></div>
+        <div class="icell"><div class="ilbl">Z 중심</div><div class="ival" id="insp-zcen">—</div></div>
+        <div class="icell"><div class="ilbl">높이 (dZ)</div><div class="ival" id="insp-dz">—</div></div>
+      </div>
+      <div id="insp-cross-badge" style="display:none;font-size:10px;background:rgba(0,204,68,.12);border:1px solid #00cc4466;color:#00cc44;padding:5px 9px;border-radius:4px;margin-bottom:8px;font-weight:600">
+        ✔ 기준선 걸침 (Crossing) — 실선으로 출력
+      </div>
+      <div class="score-wrap">
+        <div class="score-lbl"><span>판별 결과</span><span id="insp-score-val" style="font-weight:700">—</span></div>
+        <div class="score-track"><div class="score-fill" id="insp-score-fill"></div></div>
+      </div>
+    </div>
+  </div>
+</div><!-- /vp -->
+</div><!-- /main -->
+</div><!-- /app -->
+<div class="toast" id="toast"></div>
+
+<!-- ════ FBX PARSE WORKER ════ -->
+<script id="wk" type="text/plain">
+self.onmessage=async function(e){
+  const{buf,prec}=e.data;
+  const post=(t,p)=>self.postMessage({type:t,...p});
+  const log=(m,c='')=>post('log',{msg:m,cls:c});
+  try{
+    log('파싱 시작 '+((buf.byteLength/1024/1024).toFixed(1))+'MB');
+    const r=await parseFBX(buf,prec,p=>post('prog',{pct:p}),log);
+    log('완료: '+r.geos.length+'개 형상',r.geos.length>0?'ok':'er');
+    post('done',{geos:r.geos});
+  }catch(err){log('오류: '+err.message,'er');post('done',{geos:[]});}
+};
+async function zlibDec(bytes){
+  const ds=new DecompressionStream('deflate'),w=ds.writable.getWriter(),r=ds.readable.getReader();
+  w.write(bytes);w.close();
+  const ch=[];while(true){const{done,value}=await r.read();if(done)break;ch.push(value);}
+  const n=ch.reduce((s,c)=>s+c.length,0),out=new Uint8Array(n);let o=0;
+  for(const c of ch){out.set(c,o);o+=c.length;}return out;
+}
+async function readArr(buf,bytes,dOff,cLen,cnt,enc,tc){
+  const f64=(tc==='d'),isInt=(tc==='i');
+  if(!f64&&tc!=='f'&&!isInt||cnt<1)return null;
+  let raw;
+  if(enc===0){const bl=cnt*(f64?8:4);if(dOff+bl>buf.byteLength)return null;raw=new Uint8Array(buf.slice(dOff,dOff+bl));}
+  else if(enc===1){if(dOff+cLen>buf.byteLength)return null;try{raw=await zlibDec(bytes.slice(dOff,dOff+cLen));}catch(e){return null;}}
+  else return null;
+  const dv=new DataView(raw.buffer);
+  if(isInt){const n2=Math.floor(raw.length/4),out=new Int32Array(n2);for(let i=0;i<n2;i++)out[i]=dv.getInt32(i*4,true);return out;}
+  const n2=Math.floor(raw.length/(f64?8:4)),out=new Float32Array(n2);
+  if(f64)for(let i=0;i<n2;i++)out[i]=dv.getFloat64(i*8,true);
+  else for(let i=0;i<n2;i++)out[i]=dv.getFloat32(i*4,true);
+  return out;
+}
+function fhash(v,p){const f=Math.pow(10,p);let h=0x811c9dc5;for(let i=0;i<v.length;i++){const x=Math.round(v[i]*f)|0;h^=x&0xff;h=Math.imul(h,0x01000193)|0;h^=(x>>8)&0xff;h=Math.imul(h,0x01000193)|0;h^=(x>>16)&0xff;h=Math.imul(h,0x01000193)|0;}h^=v.length;h=Math.imul(h,0x01000193)|0;return(h>>>0).toString(16).padStart(8,'0');}
+function polyToTri(idx){
+  const t=[];let s=0,hasNeg=false;
+  for(let i=0;i<idx.length;i++){if(idx[i]<0){hasNeg=true;break;}}
+  if(hasNeg){for(let i=0;i<idx.length;i++){const raw=idx[i],isEnd=(raw<0),vi=isEnd?~raw:raw;if(isEnd){const poly=[];for(let j=s;j<i;j++)poly.push(idx[j]);poly.push(vi);for(let j=1;j<poly.length-1;j++)t.push(poly[0],poly[j],poly[j+1]);s=i+1;}}}
+  else{if(idx.length%3===0){for(let i=0;i<idx.length;i++)t.push(idx[i]);}else{for(let i=0;i+3<idx.length;i+=4){t.push(idx[i],idx[i+1],idx[i+2]);t.push(idx[i],idx[i+2],idx[i+3]);}}}
+  return new Int32Array(t);
+}
+async function parseFBX(buf,prec,onProg,log){
+  const bytes=new Uint8Array(buf);
+  const magic='Kaydara FBX Binary  ';let isBin=true;
+  for(let i=0;i<20;i++)if(bytes[i]!==magic.charCodeAt(i)){isBin=false;break;}
+  if(!isBin)return parseAscii(buf,prec,onProg,log);
+  const view=new DataView(buf),size=buf.byteLength;
+  const ver=view.getUint32(23,true),u64=ver>=7500;
+  log('Binary FBX v'+ver);
+  const RHS=u64?25:13,ru32=o=>view.getUint32(o,true),ru64=o=>view.getUint32(o,true)+view.getUint32(o+4,true)*4294967296;
+  const geos=[],idMap=new Map();
+  function scanNames(off,dep){
+    if(dep>6)return;
+    while(off<size-RHS){
+      let eO,nP,pL,nL,hE;
+      if(u64){eO=ru64(off);nP=ru32(off+8);pL=ru32(off+12);nL=bytes[off+16];hE=off+17;}
+      else{eO=ru32(off);nP=ru32(off+4);pL=ru32(off+8);nL=bytes[off+12];hE=off+13;}
+      if(!eO||eO>size||eO<=off)break;
+      const nm=String.fromCharCode(...bytes.slice(hE,hE+nL));
+      if(nP>=2&&(nm==='Model'||nm==='Geometry'||nm==='NodeAttribute')){
+        let c=hE+nL,id=-1,lbl='';
+        for(let pi=0;pi<nP&&c<size;pi++){
+          const tc=String.fromCharCode(bytes[c]);c++;
+          if(tc==='C')c+=1;else if(tc==='Y')c+=2;else if(tc==='I'||tc==='F')c+=4;
+          else if(tc==='D'||tc==='L'){if(pi===0)id=ru32(c);c+=8;}
+          else if(tc==='S'||tc==='R'){const ln=ru32(c);c+=4;if(pi===1&&ln>0&&ln<1024){const d=new TextDecoder('utf-8',{fatal:false}).decode(bytes.slice(c,c+ln));const ni=d.indexOf('\x00');let s2=(ni>-1?d.slice(0,ni):d).trim();for(const p2 of['Model::','Geometry::','NodeAttribute::'])if(s2.startsWith(p2)){s2=s2.slice(p2.length);break;}if(s2)lbl=s2;}c+=ln;}
+          else if('dfilb'.includes(tc)){const cnt=ru32(c);c+=4;c+=4;const cl=ru32(c);c+=4+cl;}else break;
+        }
+        if(id>=0&&lbl)idMap.set(id,lbl);
+        const cs=hE+nL+pL;if(cs<eO-RHS)scanNames(cs,dep+1);
+      }
+      off=eO;
+    }
+  }
+  scanNames(27,0);
+  async function readNode(off){
+    if(off+RHS>size)return null;
+    let eO,nP,pL,nL,hE;
+    if(u64){eO=ru64(off);nP=ru32(off+8);pL=ru32(off+12);nL=bytes[off+16];hE=off+17;}
+    else{eO=ru32(off);nP=ru32(off+4);pL=ru32(off+8);nL=bytes[off+12];hE=off+13;}
+    if(!eO||eO>size||eO<=off)return null;
+    const name=String.fromCharCode(...bytes.slice(hE,hE+nL));
+    let cur=hE+nL,sV=null,sI=null,geoId=-1,geoName='',pi2=0;
+    for(let pi=0;pi<nP&&cur<size;pi++){
+      const tc=String.fromCharCode(bytes[cur]);cur++;
+      if(tc==='C')cur+=1;else if(tc==='Y')cur+=2;else if(tc==='I'||tc==='F')cur+=4;
+      else if(tc==='D'||tc==='L'){if(name==='Geometry'&&pi2===0)geoId=ru32(cur);cur+=8;}
+      else if(tc==='S'||tc==='R'){const ln=ru32(cur);cur+=4;if(name==='Geometry'&&pi2===1&&tc==='S'&&ln>0){const raw=new TextDecoder('utf-8',{fatal:false}).decode(bytes.slice(cur,cur+Math.min(ln,512)));const ni=raw.indexOf('\x00');let s2=(ni>-1?raw.slice(0,ni):raw).trim();for(const p2 of['Geometry::','Model::'])if(s2.startsWith(p2)){s2=s2.slice(p2.length);break;}if(s2)geoName=s2;}cur+=ln;}
+      else if('dfilb'.includes(tc)){const cnt=ru32(cur);cur+=4;const enc=ru32(cur);cur+=4;const cL=ru32(cur);cur+=4;const dO=cur;if((tc==='d'||tc==='f')&&cnt>=9&&name==='Vertices'){const a=await readArr(buf,bytes,dO,cL,cnt,enc,tc);if(a&&!sV)sV=a;}if(tc==='i'&&cnt>=3&&name==='PolygonVertexIndex'){const a=await readArr(buf,bytes,dO,cL,cnt,enc,tc);if(a&&!sI)sI=a;}cur+=cL;}
+      else break;
+      pi2++;
+    }
+    let cV=null,cI=null,cO=hE+nL+pL;
+    while(cO<eO-RHS){const c=await readNode(cO);if(!c)break;if(c.n==='Vertices'&&c.v&&!cV)cV=c.v;if(c.n==='PolygonVertexIndex'&&c.i&&!cI)cI=c.i;cO=c.e;}
+    const fV=cV||sV,fI=cI||sI;
+    if(name==='Geometry'&&fV){const lbl=geoName||(geoId>=0?idMap.get(geoId)||'':'');
+      const rawTris=(fI&&fI.length>=3)?polyToTri(fI):null;
+      geos.push({hash:fhash(fV,prec),verts:fV,tris:(rawTris&&rawTris.length>=3)?rawTris:null,label:lbl});
+    }
+    return{e:eO,n:name,v:(name==='Vertices'?sV:null),i:(name==='PolygonVertexIndex'?sI:null)};
+  }
+  let cur=27,lp=0;
+  while(cur<size-RHS){const n=await readNode(cur);if(!n)break;cur=n.e;const p=Math.round((cur/size)*95);if(p>lp){onProg(p);lp=p;}}
+  if(!geos.length){log('Geometry 없음 → 직접 스캔','wn');return scanDirect(buf,bytes,view,size,prec,RHS,u64,onProg,log);}
+  return{geos};
+}
+async function scanDirect(buf,bytes,view,size,prec,RHS,u64,onProg,log){
+  const geos=[],ru32=o=>view.getUint32(o,true),ru64=o=>view.getUint32(o,true)+view.getUint32(o+4,true)*4294967296;
+  async function sc(off){
+    if(off+RHS>size)return null;
+    let eO,nP,pL,nL,hE;
+    if(u64){eO=ru64(off);nP=ru32(off+8);pL=ru32(off+12);nL=bytes[off+16];hE=off+17;}
+    else{eO=ru32(off);nP=ru32(off+4);pL=ru32(off+8);nL=bytes[off+12];hE=off+13;}
+    if(!eO||eO>size||eO<=off)return null;
+    const name=String.fromCharCode(...bytes.slice(hE,hE+nL));
+    let cur=hE+nL;
+    for(let pi=0;pi<nP&&cur<size;pi++){
+      const tc=String.fromCharCode(bytes[cur]);cur++;
+      if(tc==='C')cur+=1;else if(tc==='Y')cur+=2;else if(tc==='I'||tc==='F')cur+=4;else if(tc==='D'||tc==='L')cur+=8;
+      else if(tc==='S'||tc==='R'){const ln=ru32(cur);cur+=4+ln;}
+      else if('dfilb'.includes(tc)){const cnt=ru32(cur);cur+=4;const enc=ru32(cur);cur+=4;const cL=ru32(cur);cur+=4;const dO=cur;if((tc==='d'||tc==='f')&&cnt>=9&&name==='Vertices'){const a=await readArr(buf,bytes,dO,cL,cnt,enc,tc);if(a)geos.push({hash:fhash(a,prec),verts:a,tris:null,label:''});}cur+=cL;}else break;
+    }
+    let c2=hE+nL+pL;while(c2<eO-RHS){const c=await sc(c2);if(!c)break;c2=c.e;}
+    return{e:eO};
+  }
+  let cur=27,lp=0;
+  while(cur<size-RHS){const n=await sc(cur);if(!n)break;cur=n.e;const p=Math.round((cur/size)*95);if(p>lp){onProg(p);lp=p;}}
+  log('스캔: '+geos.length+'개');return{geos};
+}
+async function parseAscii(buf,prec,onProg,log){
+  log('ASCII FBX');
+  const text=new TextDecoder('utf-8',{fatal:false}).decode(buf),geos=[];
+  const re=/Vertices:\s*\*\d+\s*\{\s*(?:a:\s*)?([\d,.\-eE\s]+)/g;let m;
+  while((m=re.exec(text))!==null){
+    const raw=m[1].replace(/\s/g,'').split(',').map(Number).filter(v=>!isNaN(v));
+    if(raw.length>=9){const vf=new Float32Array(raw);geos.push({hash:fhash(vf,prec),verts:vf,tris:null,label:''});}
+    onProg(Math.min(95,Math.round((m.index/text.length)*95)));
+  }
+  log('ASCII: '+geos.length+'개');return{geos};
+}
+</script>
+
+<!-- ════ EDGE + CLASSIFY WORKER ════ -->
+<script id="ew" type="text/plain">
+const ANGLE_THRESH = 15*Math.PI/180;
+const PILE_MIN_HEIGHT = 3.0;
+
+function classifyGeo(nTris, nVerts, dx, dy, dz){
+  const maxXY = Math.max(dx, dy);
+  const isVertical  = (dz >= maxXY * 3);
+  const isFlat      = (dz <= maxXY * 0.1);
+  const isTallEnough = (dz >= PILE_MIN_HEIGHT);
+
+  const isPipeCandidate = (nTris===128 && nVerts>=90) || (nTris===72 && nVerts>=72);
+  if(isPipeCandidate){
+    if(isFlat) return 'normal';
+    if(isVertical && isTallEnough) return 'pile';
+    if(isVertical && !isTallEnough) return 'normal';
+    return 'pipe';
+  }
+
+  if(nTris>=12 && nVerts>=8 && isVertical && isTallEnough) return 'pile';
+
+  if(nTris===256 && nVerts>=196) return 'tee';
+
+  return 'normal';
+}
+
+self.onmessage = function(ev){
+  const{geos,zLevel}=ev.data;
+  const post=(t,p)=>self.postMessage({type:t,...p});
+  try{
+    let zMin=Infinity,zMax=-Infinity;
+    for(const g of geos){const v=g.verts;for(let i=2;i<v.length;i+=3){if(v[i]<zMin)zMin=v[i];if(v[i]>zMax)zMax=v[i];}}
+    const n=geos.length;
+    const pipeEdges=[],teeEdges=[],pileEdges=[],normalEdges=[];
+    const classMap=new Array(n).fill('normal');
+    let pipeCnt=0,teeCnt=0,pileCnt=0,normalCnt=0;
+    let pipeCross=0,teeCross=0,normalCross=0;
+
+    for(let gi=0;gi<n;gi++){
+      const geo=geos[gi];
+      const v=geo.verts,tris=geo.tris;
+      const hasTris=tris&&tris.length>=3;
+      const nTris=hasTris?(tris.length/3|0):(v.length/9|0);
+      const nv=v.length/3|0;
+      if(nTris===0)continue;
+      const gv=(ti,c)=>hasTris?tris[ti*3+c]:ti*3+c;
+
+      let xMn=Infinity,xMx=-Infinity,yMn=Infinity,yMx=-Infinity,zMn=Infinity,zMx=-Infinity;
+      for(let i=0;i<nv;i++){const x=v[i*3],y=v[i*3+1],z=v[i*3+2];if(x<xMn)xMn=x;if(x>xMx)xMx=x;if(y<yMn)yMn=y;if(y>yMx)yMx=y;if(z<zMn)zMn=z;if(z>zMx)zMx=z;}
+      const dx=xMx-xMn,dy=yMx-yMn,dz=zMx-zMn;
+
+      let cls=classifyGeo(nTris,nv,dx,dy,dz);
+
+      if(cls==='pile' && zMx >= zLevel){
+        cls = 'normal';
+      }
+
+      classMap[gi]=cls;
+
+      const isCrossing = (zMn < zLevel && zMx >= zLevel);
+      const isAbove = (zMx >= zLevel);
+
+      if(isCrossing){
+        if(cls==='pipe') pipeCross++;
+        else if(cls==='tee') teeCross++;
+        else if(cls==='normal') normalCross++;
+      }
+
+      if(cls==='pipe'){
+        pipeCnt++;
+        extractSilhouette(dx,dy,dz,xMn,xMx,yMn,yMx,zMn,zMx,isAbove,isCrossing,pipeEdges,v,nv);
+      }else if(cls==='tee'){
+        teeCnt++;
+        extractEdges(v,nv,nTris,gv,isAbove,isCrossing,teeEdges);
+      }else if(cls==='pile'){
+        pileCnt++;
+        extractPileTop(xMn,xMx,yMn,yMx,zMx,pileEdges,v,nv,dx,dy,dz);
+      }else{
+        normalCnt++;
+        extractEdges(v,nv,nTris,gv,isAbove,isCrossing,normalEdges);
+      }
+
+      if(gi%100===99||gi===n-1)post('prog',{pct:Math.round((gi+1)/n*100)});
+    }
+
+    const total=pipeEdges.length+teeEdges.length+pileEdges.length+normalEdges.length;
+    post('done',{pipeEdges,teeEdges,pileEdges,normalEdges,total,
+                 zMin,zMax,classMap,pipeCnt,teeCnt,pileCnt,normalCnt,
+                 pipeCross,teeCross,normalCross});
+  }catch(err){post('err',{msg:err.message});}
+};
+
+function extractPileTop(xMn,xMx,yMn,yMx,zMx,out,verts,nv,dx,dy,dz){
+  const zThresh=zMx-dz*0.15;
+  let txMn=Infinity,txMx=-Infinity,tyMn=Infinity,tyMx=-Infinity;
+  for(let i=0;i<nv;i++){
+    const z=verts[i*3+2];
+    if(z>=zThresh){const x=verts[i*3],y=verts[i*3+1];if(x<txMn)txMn=x;if(x>txMx)txMx=x;if(y<tyMn)tyMn=y;if(y>tyMx)tyMx=y;}
+  }
+  if(!isFinite(txMn)){txMn=xMn;txMx=xMx;tyMn=yMn;tyMx=yMx;}
+  out.push({x1:txMn,y1:tyMn,x2:txMx,y2:tyMn,isAbove:false,isCrossing:false,isPile:true});
+  out.push({x1:txMx,y1:tyMn,x2:txMx,y2:tyMx,isAbove:false,isCrossing:false,isPile:true});
+  out.push({x1:txMx,y1:tyMx,x2:txMn,y2:tyMx,isAbove:false,isCrossing:false,isPile:true});
+  out.push({x1:txMn,y1:tyMx,x2:txMn,y2:tyMn,isAbove:false,isCrossing:false,isPile:true});
+}
+
+function extractSilhouette(dx,dy,dz,xMn,xMx,yMn,yMx,zMn,zMx,isAbove,isCrossing,out,verts,nv){
+  if(dz>=dx&&dz>=dy){
+    const cx=(xMn+xMx)/2,cy=(yMn+yMx)/2,r=Math.max(dx,dy)/2;
+    out.push({x1:cx-r,y1:cy-r,x2:cx+r,y2:cy-r,isAbove,isCrossing});
+    out.push({x1:cx+r,y1:cy-r,x2:cx+r,y2:cy+r,isAbove,isCrossing});
+    out.push({x1:cx+r,y1:cy+r,x2:cx-r,y2:cy+r,isAbove,isCrossing});
+    out.push({x1:cx-r,y1:cy+r,x2:cx-r,y2:cy-r,isAbove,isCrossing});
+    return;
+  }
+  const splitAxis=(dy>dx&&dy>dz)?1:(dz>dx&&dz>dy)?2:0;
+  const getMid=()=>[[xMn+xMx],[yMn+yMx],[zMn+zMx]][splitAxis][0]/2;
+  const mid=getMid();
+  let ax0=0,ay0=0,n0=0,ax1=0,ay1=0,n1=0;
+  for(let i=0;i<nv;i++){
+    const val=verts[i*3+splitAxis];
+    if(val<mid){ax0+=verts[i*3];ay0+=verts[i*3+1];n0++;}
+    else{ax1+=verts[i*3];ay1+=verts[i*3+1];n1++;}
+  }
+  if(n0<3||n1<3){
+    ax0=ay0=n0=ax1=ay1=n1=0;
+    const alt=(splitAxis===0)?1:0;
+    const altMid=alt===0?(xMn+xMx)/2:(yMn+yMx)/2;
+    for(let i=0;i<nv;i++){
+      const val=verts[i*3+alt];
+      if(val<altMid){ax0+=verts[i*3];ay0+=verts[i*3+1];n0++;}
+      else{ax1+=verts[i*3];ay1+=verts[i*3+1];n1++;}
+    }
+  }
+  if(n0<1)n0=1;if(n1<1)n1=1;
+  ax0/=n0;ay0/=n0;ax1/=n1;ay1/=n1;
+  let ux=ax1-ax0,uy=ay1-ay0;
+  const ul=Math.sqrt(ux*ux+uy*uy);
+  if(ul<1e-6){
+    const cx=(xMn+xMx)/2,cy=(yMn+yMx)/2,r=Math.max(dx,dy)/2;
+    out.push({x1:cx-r,y1:cy-r,x2:cx+r,y2:cy-r,isAbove,isCrossing});
+    out.push({x1:cx+r,y1:cy-r,x2:cx+r,y2:cy+r,isAbove,isCrossing});
+    out.push({x1:cx+r,y1:cy+r,x2:cx-r,y2:cy+r,isAbove,isCrossing});
+    out.push({x1:cx-r,y1:cy+r,x2:cx-r,y2:cy-r,isAbove,isCrossing});
+    return;
+  }
+  ux/=ul;uy/=ul;
+  const vx=-uy,vy=ux;
+  const cx=(xMn+xMx)/2,cy=(yMn+yMx)/2;
+  let r=0,pMin=Infinity,pMax=-Infinity;
+  for(let i=0;i<nv;i++){
+    const px=verts[i*3]-cx,py=verts[i*3+1]-cy;
+    const along=px*ux+py*uy,perp=px*vx+py*vy;
+    if(Math.abs(perp)>r)r=Math.abs(perp);
+    if(along<pMin)pMin=along;if(along>pMax)pMax=along;
+  }
+  const A=[cx+ux*pMin+vx*r,cy+uy*pMin+vy*r];
+  const B=[cx+ux*pMax+vx*r,cy+uy*pMax+vy*r];
+  const C=[cx+ux*pMax+vx*(-r),cy+uy*pMax+vy*(-r)];
+  const D=[cx+ux*pMin+vx*(-r),cy+uy*pMin+vy*(-r)];
+  out.push({x1:A[0],y1:A[1],x2:B[0],y2:B[1],isAbove,isCrossing});
+  out.push({x1:B[0],y1:B[1],x2:C[0],y2:C[1],isAbove,isCrossing});
+  out.push({x1:C[0],y1:C[1],x2:D[0],y2:D[1],isAbove,isCrossing});
+  out.push({x1:D[0],y1:D[1],x2:A[0],y2:A[1],isAbove,isCrossing});
+}
+
+function extractEdges(v,nv,nTris,gv,isAbove,isCrossing,out){
+  const R=1e4;
+  const nz=new Float32Array(nTris);
+  for(let i=0;i<nTris;i++){
+    const ai=gv(i,0),bi=gv(i,1),ci=gv(i,2);
+    const ax=v[ai*3],ay=v[ai*3+1],az=v[ai*3+2];
+    const bx=v[bi*3],by=v[bi*3+1],bz=v[bi*3+2];
+    const cx=v[ci*3],cy=v[ci*3+1],cz=v[ci*3+2];
+    nz[i]=(bx-ax)*(cy-ay)-(by-ay)*(cx-ax);
+  }
+  const edgeMap=new Map();
+  for(let i=0;i<nTris;i++){
+    for(let e=0;e<3;e++){
+      const p=gv(i,e),q=gv(i,(e+1)%3);
+      const px=v[p*3],py=v[p*3+1],pz=v[p*3+2];
+      const qx=v[q*3],qy=v[q*3+1],qz=v[q*3+2];
+      const rp=Math.round(px*R)/R+','+Math.round(py*R)/R+','+Math.round(pz*R)/R;
+      const rq=Math.round(qx*R)/R+','+Math.round(qy*R)/R+','+Math.round(qz*R)/R;
+      const k=rp<rq?rp+'|'+rq:rq+'|'+rp;
+      if(!edgeMap.has(k))edgeMap.set(k,{px1:px,py1:py,px2:qx,py2:qy,faces:[]});
+      edgeMap.get(k).faces.push(i);
+    }
+  }
+  for(const[,e]of edgeMap){
+    const{px1,py1,px2,py2,faces}=e;
+    if(Math.hypot(px1-px2,py1-py2)<1e-6) continue;
+    let ok=false;
+    if(faces.length===1){
+      ok=true;
+    } else {
+      for(let i=0;i<faces.length-1&&!ok;i++){
+        for(let j=i+1;j<faces.length&&!ok;j++){
+          if(nz[faces[i]]*nz[faces[j]]<=0) ok=true;
+        }
+      }
+    }
+    if(ok) out.push({x1:px1,y1:py1,x2:px2,y2:py2,isAbove,isCrossing});
+  }
+}
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const S={buf:null,geos:null,edges2d:null,zRange:null,running:false,
+         renderer:null,scene:null,camera:null,meshes:[],meshMeta:[],
+         wireMode:false,colorMode:true};
+const COL_HEX={pipe:'#FF3D3D',tee:'#FF9900',pile:'#8a6200',normal:'#8890A0'};
+const CLS_LABEL={pipe:'직선 Pipe',tee:'Tee (분기)',pile:'Pile (파일)',normal:'일반 구조물'};
+const COL_PIPE_TEE=0xFF3D3D,COL_PILE=0x8a6200,COL_CONCRETE=0x8890A0,COL_CROSS=0x00cc44;
+const EDGE_COL={[COL_PIPE_TEE]:0xBB2020,[COL_PILE]:0x6b4c00,[COL_CONCRETE]:0x60687a,[COL_CROSS]:0x008822};
+
+function getMeshColor(cls, isCross){
+  if(isCross&&cls!=='pile') return COL_CROSS;
+  if(cls==='pipe'||cls==='tee') return COL_PIPE_TEE;
+  if(cls==='pile') return COL_PILE;
+  return COL_CONCRETE;
+}
+
+const WK_URL=URL.createObjectURL(new Blob([document.getElementById('wk').textContent],{type:'text/javascript'}));
+const EW_URL=URL.createObjectURL(new Blob([document.getElementById('ew').textContent],{type:'text/javascript'}));
+
+function addLog(msg,cls=''){
+  const el=document.getElementById('log');
+  if(el.textContent.startsWith('FBX'))el.innerHTML='';
+  const d=document.createElement('div');if(cls)d.className=cls;d.textContent=msg;
+  el.appendChild(d);el.scrollTop=99999;
+}
+const SLBL=['FBX 파싱','분류·엣지 추출','3D 렌더'];
+const SWGT=[15,25,60];
+let sPct=[0,0,0];
+let _poStart=0,_poActive=false;
+
+function showOverlay(title){
+  _poActive=true;_poStart=performance.now();
+  document.getElementById('po').classList.remove('h');
+  document.getElementById('po-title').textContent=title||'처리 중...';
+  document.getElementById('po-sub').textContent='';
+  document.getElementById('po-eta-row').textContent='';
+}
+function hideOverlay(){
+  _poActive=false;
+  document.getElementById('po').classList.add('h');
+}
+function setStep(i,pct,subMsg){
+  sPct[i]=pct;
+  [1,2,3].forEach(n=>{
+    const d=document.getElementById('d'+n),l=document.getElementById('l'+n),p=document.getElementById('p'+n);
+    l.textContent=SLBL[n-1];
+    if(n-1<i){d.className='sd dn';l.className='sl dn';p.textContent='✓';}
+    else if(n-1===i){d.className='sd ac';l.className='sl ac';p.textContent=pct+'%';}
+    else{d.className='sd';l.className='sl';p.textContent='';}
+  });
+  let tot=0;for(let k=0;k<3;k++)tot+=sPct[k]*SWGT[k]/100;
+  tot=Math.round(tot);
+  document.getElementById('pb').style.width=tot+'%';
+  document.getElementById('pct').textContent=tot+'%';
+  document.getElementById('po-bar').style.width=tot+'%';
+  document.getElementById('po-pct').childNodes[0].textContent=tot+'%';
+  if(subMsg)document.getElementById('po-sub').textContent=subMsg;
+  [1,2,3].forEach(n=>{
+    const dot=document.getElementById('po-d'+n),lbl=document.getElementById('po-l'+n),pp=document.getElementById('po-p'+n);
+    if(n-1<i){dot.className='po-step-dot dn';lbl.className='po-step-lbl dn';pp.className='po-step-pct dn';pp.textContent='✓';}
+    else if(n-1===i){dot.className='po-step-dot ac';lbl.className='po-step-lbl ac';pp.className='po-step-pct ac';pp.textContent=pct+'%';}
+    else{dot.className='po-step-dot';lbl.className='po-step-lbl';pp.className='po-step-pct';pp.textContent='—';}
+  });
+  if(_poActive&&tot>=30&&_poStart>0){
+    const elapsed=(performance.now()-_poStart)/1000;
+    const remain=tot>0?Math.round(elapsed/tot*(100-tot)):0;
+    const etaEl=document.getElementById('po-eta-row');
+    if(remain>3)etaEl.textContent='경과 '+elapsed.toFixed(0)+'초 · 예상 잔여 약 '+remain+'초';
+    else etaEl.textContent='경과 '+elapsed.toFixed(0)+'초';
+  }
+}
+function tick(){return new Promise(r=>setTimeout(r,0));}
+let toastT;
+function toast(msg,type=''){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.className='toast sh'+(type?' '+type:'');
+  clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('sh'),4000);
+}
+
+function loadFile(f){
+  if(!f)return;
+  if(!f.name.toLowerCase().endsWith('.fbx')){toast('FBX 파일만 지원됩니다','er');return;}
+  document.getElementById('fi').innerHTML='<span class="fn">'+f.name+'</span> ('+(f.size/1024/1024).toFixed(1)+'MB)';
+  document.getElementById('dz').style.borderColor='var(--ac)';
+  addLog('로드: '+f.name,'ok');
+  const r=new FileReader();
+  r.onload=function(ev){S.buf=ev.target.result;document.getElementById('btn-extract').disabled=false;toast('로드 완료','ok');};
+  r.readAsArrayBuffer(f);
+}
+
+document.getElementById('btn-extract').addEventListener('click',startExtract);
+
+async function startExtract(){
+  if(S.running||!S.buf)return;
+  S.running=true;
+  document.getElementById('btn-extract').disabled=true;
+  document.getElementById('btn-dxf').disabled=true;
+  sPct=[0,0,0];document.getElementById('log').innerHTML='';
+  document.getElementById('stat-section').style.display='none';
+  document.getElementById('crossing-info').style.display='none';
+
+  showOverlay('FBX 처리 중...');
+  setStep(0,0,'FBX 파일 파싱 중...');
+  S.geos=await runFBXWorker(S.buf.slice(0));
+  addLog('형상 '+S.geos.length+'개',S.geos.length?'ok':'er');
+  setStep(0,100);
+  if(!S.geos.length){toast('형상 없음','er');S.running=false;document.getElementById('btn-extract').disabled=false;hideOverlay();return;}
+
+  const zLevel=parseFloat(document.getElementById('opt-z').value)||0;
+  setStep(1,0);await tick();
+  S.edges2d=await runEdgeWorker(S.geos,zLevel);
+  setStep(1,100);
+
+  await render3D(S.geos,S.edges2d.classMap,zLevel);
+  document.getElementById('vov').classList.add('h');
+  updateStats(S.edges2d);
+
+  setStep(2,100);
+  document.getElementById('btn-dxf').disabled=false;
+  document.getElementById('btn-extract').disabled=false;
+  S.running=false;
+  hideOverlay();
+  const crossTotal=(S.edges2d.pipeCross||0)+(S.edges2d.teeCross||0)+(S.edges2d.normalCross||0);
+  toast('완료 — Pipe:'+S.edges2d.pipeCnt+' Tee:'+S.edges2d.teeCnt+' Pile:'+S.edges2d.pileCnt+' 일반:'+S.edges2d.normalCnt+' (걸침:'+crossTotal+')','ok');
+}
+
+function updateStats(e){
+  const vals={pipe:e.pipeEdges.length,tee:e.teeEdges.length,pile:e.pileEdges.length,normal:e.normalEdges.length};
+  const mx=Math.max(...Object.values(vals),1);
+  ['pipe','tee','pile','normal'].forEach(k=>{
+    document.getElementById('lc-'+k).textContent=vals[k].toLocaleString()+'개 엣지';
+    document.getElementById('sv-'+k).textContent=vals[k].toLocaleString();
+    document.getElementById('sb-'+k).style.width=(vals[k]/mx*100)+'%';
+  });
+  document.getElementById('stat-section').style.display='block';
+  document.getElementById('classify-result-txt').textContent=
+    '형상 '+S.geos.length+'개 · Pipe '+e.pipeCnt+' / Tee '+e.teeCnt+' / Pile '+e.pileCnt+' / 일반 '+e.normalCnt;
+  const crossTotal=(e.pipeCross||0)+(e.teeCross||0)+(e.normalCross||0);
+  if(crossTotal>0){
+    document.getElementById('cx-pipe').textContent=e.pipeCross||0;
+    document.getElementById('cx-tee').textContent=e.teeCross||0;
+    document.getElementById('cx-normal').textContent=e.normalCross||0;
+    document.getElementById('crossing-info').style.display='block';
+    addLog('걸침 형상: Pipe '+e.pipeCross+' Tee '+e.teeCross+' 일반 '+e.normalCross+' → 실선 출력','ok');
+  }
+}
+
+function runFBXWorker(buf){
+  return new Promise(resolve=>{
+    const wk=new Worker(WK_URL);
+    wk.postMessage({buf,prec:2},[buf]);
+    wk.onmessage=ev=>{
+      const{type,msg,cls,pct,geos}=ev.data;
+      if(type==='log')addLog(msg,cls);
+      else if(type==='prog')setStep(0,pct,'FBX 파싱 '+pct+'%');
+      else if(type==='done'){wk.terminate();resolve(geos||[]);}
+    };
+    wk.onerror=ev=>{addLog('Worker 오류: '+ev.message,'er');wk.terminate();resolve([]);};
+  });
+}
+function runEdgeWorker(geos,zLevel){
+  return new Promise(resolve=>{
+    const wk=new Worker(EW_URL);
+    wk.postMessage({geos,zLevel});
+    wk.onmessage=ev=>{
+      const d=ev.data;
+      if(d.type==='prog')setStep(1,d.pct,'엣지 분류 '+d.pct+'%');
+      else if(d.type==='done'){
+        wk.terminate();
+        S.zRange={min:d.zMin,max:d.zMax};
+        document.getElementById('zrange-txt').textContent=d.zMin.toFixed(1)+' ~ '+d.zMax.toFixed(1);
+        addLog('Z범위: '+d.zMin.toFixed(1)+' ~ '+d.zMax.toFixed(1),'ok');
+        addLog('Pipe:'+d.pipeCnt+' Tee:'+d.teeCnt+' Pile:'+d.pileCnt+' 일반:'+d.normalCnt,'ok');
+        addLog('엣지 총 '+d.total,'ok');
+        resolve({pipeEdges:d.pipeEdges,teeEdges:d.teeEdges,pileEdges:d.pileEdges,normalEdges:d.normalEdges,
+                 total:d.total,zLevel,classMap:d.classMap,
+                 pipeCnt:d.pipeCnt,teeCnt:d.teeCnt,pileCnt:d.pileCnt,normalCnt:d.normalCnt,
+                 pipeCross:d.pipeCross||0,teeCross:d.teeCross||0,normalCross:d.normalCross||0});
+      }else if(d.type==='err'){
+        wk.terminate();addLog('오류: '+d.msg,'er');
+        resolve({pipeEdges:[],teeEdges:[],pileEdges:[],normalEdges:[],total:0,zLevel,classMap:null,
+                 pipeCnt:0,teeCnt:0,pileCnt:0,normalCnt:0,pipeCross:0,teeCross:0,normalCross:0});
+      }
+    };
+    wk.onerror=ev=>{
+      addLog('EdgeWorker 오류: '+ev.message,'er');wk.terminate();
+      resolve({pipeEdges:[],teeEdges:[],pileEdges:[],normalEdges:[],total:0,zLevel,classMap:null,
+               pipeCnt:0,teeCnt:0,pileCnt:0,normalCnt:0,pipeCross:0,teeCross:0,normalCross:0});
+    };
+  });
+}
+
+/* ── 3D render ── */
+let zPlaneMesh=null;
+
+function updateZPlane(zLevel){
+  if(!S.scene)return;
+  if(zPlaneMesh){if(zPlaneMesh.userData.borderLine)S.scene.remove(zPlaneMesh.userData.borderLine);S.scene.remove(zPlaneMesh);zPlaneMesh=null;}
+  if(!S.meshes.length)return;
+  const box=new THREE.Box3();S.meshes.forEach(o=>box.expandByObject(o));
+  if(box.isEmpty())return;
+  const sz=box.getSize(new THREE.Vector3());
+  const pad=Math.max(sz.x,sz.z)*0.1;
+  const threeY=zLevel;
+  const geo=new THREE.PlaneGeometry(sz.x+pad*2,sz.z+pad*2);
+  const mat=new THREE.MeshBasicMaterial({color:0x00aaff,side:THREE.DoubleSide,transparent:true,opacity:0.18,depthWrite:false});
+  zPlaneMesh=new THREE.Mesh(geo,mat);
+  zPlaneMesh.rotation.x=-Math.PI/2;
+  const ctr=box.getCenter(new THREE.Vector3());
+  zPlaneMesh.position.set(ctr.x,threeY,ctr.z);
+  S.scene.add(zPlaneMesh);
+  const lGeo=new THREE.BufferGeometry();
+  const cx=ctr.x,cz=ctr.z,hw=(sz.x+pad*2)/2,hd=(sz.z+pad*2)/2;
+  lGeo.setAttribute('position',new THREE.Float32BufferAttribute([
+    cx-hw,threeY,cz-hd,cx+hw,threeY,cz-hd,cx+hw,threeY,cz-hd,cx+hw,threeY,cz+hd,
+    cx+hw,threeY,cz+hd,cx-hw,threeY,cz+hd,cx-hw,threeY,cz+hd,cx-hw,threeY,cz-hd
+  ],3));
+  const lMesh=new THREE.LineSegments(lGeo,new THREE.LineBasicMaterial({color:0x00aaff,transparent:true,opacity:0.6}));
+  S.scene.add(lMesh);
+  zPlaneMesh.userData.borderLine=lMesh;
+}
+
+async function render3D(geos,classMap,zLevel){
+  const canvas=document.getElementById('c3d');
+  const W=canvas.parentElement.clientWidth,H=canvas.parentElement.clientHeight;
+  if(!S.renderer){
+    S.renderer=new THREE.WebGLRenderer({canvas,antialias:false});
+    S.renderer.setPixelRatio(1);
+    S.renderer.setClearColor(0x0a0b0f,1);
+    S.scene=new THREE.Scene();
+    S.camera=new THREE.PerspectiveCamera(45,W/H,0.001,1e9);
+    initControls();renderLoop();
+  }
+  S.renderer.setSize(W,H);S.camera.aspect=W/H;S.camera.updateProjectionMatrix();
+  S.meshes.forEach(o=>S.scene.remove(o));
+  if(zPlaneMesh){if(zPlaneMesh.userData.borderLine)S.scene.remove(zPlaneMesh.userData.borderLine);S.scene.remove(zPlaneMesh);zPlaneMesh=null;}
+  S.meshes=[];S.meshMeta=[];
+
+  function getFaceMat(color){return new THREE.MeshBasicMaterial({color,side:THREE.DoubleSide,depthWrite:true});}
+  function getEdgeMat(color){return new THREE.LineBasicMaterial({color,transparent:true,opacity:0.55,depthTest:true});}
+
+  const n=geos.length;
+  const BATCH=500;
+  const t0=performance.now();
+
+  for(let gi=0;gi<n;gi++){
+    const geo=geos[gi];
+    const v=geo.verts,tris=geo.tris;
+    const hasTris=tris&&tris.length>=3;
+    const nv=v.length/3|0;
+    if(nv<3)continue;
+    const pos=new Float32Array(nv*3);
+    for(let i=0;i<nv;i++){pos[i*3]=v[i*3];pos[i*3+1]=v[i*3+2];pos[i*3+2]=-v[i*3+1];}
+    const geom=new THREE.BufferGeometry();
+    geom.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+    if(hasTris)geom.setIndex(new THREE.BufferAttribute(new Uint32Array(tris),1));
+
+    let xMn=Infinity,xMx=-Infinity,yMn=Infinity,yMx=-Infinity,zMn=Infinity,zMx=-Infinity;
+    for(let i=0;i<nv;i++){
+      const vx=v[i*3],vy=v[i*3+1],vz=v[i*3+2];
+      if(vx<xMn)xMn=vx;if(vx>xMx)xMx=vx;if(vy<yMn)yMn=vy;if(vy>yMx)yMx=vy;if(vz<zMn)zMn=vz;if(vz>zMx)zMx=vz;
+    }
+    const dx=xMx-xMn,dy=yMx-yMn,dz=zMx-zMn;
+    let d0=dx,d1=dy,d2=dz;
+    if(d1>d0){let t=d0;d0=d1;d1=t;}if(d2>d0){let t=d0;d0=d2;d2=t;}
+    const ar=(d1+d2)>1e-6?d0/((d1+d2)/2):1;
+    const autoCls=classMap?classMap[gi]:'normal';
+    const isCross=(zMn<zLevel&&zMx>=zLevel);
+    const baseColor=S.colorMode?getMeshColor(autoCls,isCross):COL_CONCRETE;
+    const mesh=new THREE.Mesh(geom,getFaceMat(baseColor));
+    mesh.userData={geoIndex:gi,baseColor};
+    S.scene.add(mesh);S.meshes.push(mesh);
+
+    const ex0=xMn,ex1=xMx,ey0=zMn,ey1=zMx,ez0=-yMx,ez1=-yMn;
+    const bboxPts=new Float32Array([
+      ex0,ey0,ez0,ex1,ey0,ez0,ex1,ey0,ez0,ex1,ey0,ez1,ex1,ey0,ez1,ex0,ey0,ez1,ex0,ey0,ez1,ex0,ey0,ez0,
+      ex0,ey1,ez0,ex1,ey1,ez0,ex1,ey1,ez0,ex1,ey1,ez1,ex1,ey1,ez1,ex0,ey1,ez1,ex0,ey1,ez1,ex0,ey1,ez0,
+      ex0,ey0,ez0,ex0,ey1,ez0,ex1,ey0,ez0,ex1,ey1,ez0,ex1,ey0,ez1,ex1,ey1,ez1,ex0,ey0,ez1,ex0,ey1,ez1,
+    ]);
+    const lGeo=new THREE.BufferGeometry();
+    lGeo.setAttribute('position',new THREE.Float32BufferAttribute(bboxPts,3));
+    const lines=new THREE.LineSegments(lGeo,getEdgeMat(EDGE_COL[baseColor]||0x505870));
+    lines.userData={isEdge:true};
+    mesh.add(lines);
+    if(S.wireMode)mesh.visible=false;
+    S.meshMeta.push({autoCls,geoIndex:gi,label:geo.label||'',
+      nVerts:nv,nTris:hasTris?(tris.length/3|0):(v.length/9|0),
+      sizeX:dx,sizeY:dy,sizeZ:dz,aspectRatio:ar,zCenter:(zMn+zMx)/2,zMax:zMx,zMin:zMn,isCross});
+    if(gi%BATCH===BATCH-1){
+      const rpct=Math.round((gi+1)/n*100);
+      setStep(2,rpct,'3D 메시 생성 '+rpct+'% ('+(gi+1)+'/'+n+')');
+      await new Promise(r=>setTimeout(r,0));
+    }
+  }
+  const elapsed=((performance.now()-t0)/1000).toFixed(1);
+  setStep(2,100,'3D 렌더 완료 '+elapsed+'초');
+  addLog('3D 렌더 완료: '+n+'개 형상, '+elapsed+'초','ok');
+  document.getElementById('vlegend').style.display=S.colorMode?'block':'none';
+  fitView();updateZPlane(zLevel);
+}
+
+function getEffectiveCls(meta){return meta.autoCls;}
+function toggleColor(){
+  S.colorMode=!S.colorMode;
+  const btn=document.getElementById('btn-color');
+  btn.style.borderColor=S.colorMode?'#FF3D3D':'#252d45';
+  btn.style.color=S.colorMode?'#FF3D3D':'#9aa5be';
+  document.getElementById('vlegend').style.display=S.colorMode?'block':'none';
+  S.meshes.forEach((mesh,idx)=>{
+    const meta=S.meshMeta[idx];if(!meta)return;
+    const c=S.colorMode?getMeshColor(getEffectiveCls(meta),meta.isCross):COL_CONCRETE;
+    mesh.material.color.setHex(c);mesh.userData.baseColor=c;
+    mesh.children.forEach(ch=>{if(ch.userData&&ch.userData.isEdge&&ch.material)ch.material.color.setHex(EDGE_COL[c]||0x505870);});
+  });
+}
+function toggleWire(){
+  S.wireMode=!S.wireMode;
+  S.meshes.forEach(mesh=>{if(!mesh.material)return;mesh.material.visible=!S.wireMode;});
+  document.getElementById('btn-wire').textContent=S.wireMode?'◼ 솔리드':'◻ 와이어';
+}
+function renderLoop(){
+  requestAnimationFrame(renderLoop);
+  if(!S.renderer||!S.scene||!S.camera)return;
+  const c=document.getElementById('c3d'),W=c.parentElement.clientWidth,H=c.parentElement.clientHeight;
+  if(Math.abs(c.width-W*devicePixelRatio)>2){S.renderer.setSize(W,H);S.camera.aspect=W/H;S.camera.updateProjectionMatrix();}
+  S.renderer.render(S.scene,S.camera);
+}
+let sph={th:Math.PI*0.25,ph:Math.PI/4,r:100};
+const tgt=new THREE.Vector3();
+function updateCam(){
+  if(!S.camera)return;
+  S.camera.position.set(tgt.x+sph.r*Math.sin(sph.ph)*Math.sin(sph.th),tgt.y+sph.r*Math.cos(sph.ph),tgt.z+sph.r*Math.sin(sph.ph)*Math.cos(sph.th));
+  S.camera.up.set(0,sph.ph<0.05?0:1,sph.ph<0.05?-1:0);S.camera.lookAt(tgt);
+}
+function fitView(){
+  if(!S.meshes.length)return;
+  const box=new THREE.Box3();S.meshes.forEach(o=>box.expandByObject(o));
+  if(box.isEmpty())return;
+  box.getCenter(tgt);const sz=box.getSize(new THREE.Vector3());
+  sph.r=Math.max(sz.x,sz.y,sz.z)*1.8;sph.th=Math.PI*0.25;sph.ph=Math.PI/4;updateCam();
+}
+function setView(v){
+  if(!S.meshes.length)return;
+  const box=new THREE.Box3();S.meshes.forEach(o=>box.expandByObject(o));
+  if(box.isEmpty())return;
+  box.getCenter(tgt);const sz=box.getSize(new THREE.Vector3());sph.r=Math.max(sz.x,sz.y,sz.z)*1.8;
+  if(v==='top'){sph.th=0;sph.ph=0.001;}else if(v==='front'){sph.th=0;sph.ph=Math.PI/2;}else if(v==='side'){sph.th=Math.PI/2;sph.ph=Math.PI/2;}else{sph.th=Math.PI*0.25;sph.ph=Math.PI/4;}
+  updateCam();
+}
+function initControls(){
+  const c=document.getElementById('c3d');
+  let drag=false,btn=-1,lm={x:0,y:0},moved=false;
+  c.addEventListener('mousedown',e=>{if(e.button===0||e.button===1){drag=true;btn=e.button;lm={x:e.clientX,y:e.clientY};moved=false;e.preventDefault();}});
+  c.addEventListener('contextmenu',e=>e.preventDefault());
+  window.addEventListener('mouseup',e=>{if(!moved&&e.button===0&&S.meshes.length)handleClick(e);drag=false;btn=-1;});
+  window.addEventListener('mousemove',e=>{
+    if(!drag)return;
+    const dx=e.clientX-lm.x,dy=e.clientY-lm.y;if(Math.abs(dx)+Math.abs(dy)>3)moved=true;lm={x:e.clientX,y:e.clientY};
+    if(btn===1){const sc=sph.r*0.0012;const fwd=new THREE.Vector3();S.camera.getWorldDirection(fwd);const right=new THREE.Vector3().crossVectors(fwd,new THREE.Vector3(0,1,0)).normalize();const up2=new THREE.Vector3().crossVectors(right,fwd).normalize();tgt.addScaledVector(right,-dx*sc);tgt.addScaledVector(up2,dy*sc);}
+    else{sph.th-=dx*0.006;sph.ph=Math.max(0.001,Math.min(Math.PI*0.999,sph.ph-dy*0.006));}
+    updateCam();
+  });
+  c.addEventListener('wheel',e=>{e.preventDefault();sph.r*=e.deltaY>0?1.1:0.9;sph.r=Math.max(0.001,Math.min(1e8,sph.r));updateCam();},{passive:false});
+}
+
+const raycaster=new THREE.Raycaster(),mouse2d=new THREE.Vector2();
+raycaster.params.Mesh={threshold:0.1};
+let selIdx=-1,origColors=new Map();
+let hlOutline=null;
+
+function handleClick(e){
+  if(!S.renderer||!S.meshes.length)return;
+  const rect=document.getElementById('c3d').getBoundingClientRect();
+  if(e.clientX<rect.left||e.clientX>rect.right||e.clientY<rect.top||e.clientY>rect.bottom)return;
+  mouse2d.x=((e.clientX-rect.left)/rect.width)*2-1;
+  mouse2d.y=-((e.clientY-rect.top)/rect.height)*2+1;
+  raycaster.setFromCamera(mouse2d,S.camera);
+  const hits=raycaster.intersectObjects(S.meshes,false);
+  if(!hits.length){clearHL();return;}
+  const idx=S.meshes.indexOf(hits[0].object);
+  if(idx<0)return;
+  if(idx===selIdx)return;
+  clearHL();
+  selIdx=idx;
+  _applyHL(idx);
+  showInspector(idx,S.meshMeta[idx]);
+}
+
+function _applyHL(idx){
+  if(!S.meshes[idx])return;
+  const mesh=S.meshes[idx];
+  origColors.set(idx,mesh.material.color.getHex());
+  mesh.material.color.setHex(0xFFFFFF);
+  if(mesh.geometry){
+    const olMat=new THREE.MeshBasicMaterial({color:0x00CFFF,side:THREE.BackSide,depthTest:true});
+    hlOutline=new THREE.Mesh(mesh.geometry,olMat);
+    hlOutline.scale.setScalar(1.04);
+    hlOutline.position.copy(mesh.position);
+    hlOutline.rotation.copy(mesh.rotation);
+    hlOutline.matrixWorld.copy(mesh.matrixWorld);
+    mesh.add(hlOutline);
+  }
+}
+
+function clearHL(){
+  if(selIdx>=0&&S.meshes[selIdx]){
+    const orig=origColors.get(selIdx);
+    if(orig!==undefined) S.meshes[selIdx].material.color.setHex(orig);
+    if(hlOutline){S.meshes[selIdx].remove(hlOutline);hlOutline=null;}
+  }
+  selIdx=-1;
+}
+function showInspector(idx,meta){
+  document.getElementById('inspector').classList.add('sh');
+  document.getElementById('vhi').style.display='none';
+  const cls=getEffectiveCls(meta),color=COL_HEX[cls]||'#ffffff',label=CLS_LABEL[cls]||cls;
+  document.getElementById('insp-dot').style.background=color;
+  document.getElementById('insp-dot').style.boxShadow='0 0 6px '+color;
+  document.getElementById('insp-ttl').textContent='#'+idx+' — '+label;
+  const nm=document.getElementById('insp-name');
+  if(meta.label&&meta.label.trim()){nm.textContent=meta.label;nm.className='nm-val';}
+  else{nm.textContent='(이름 없음)';nm.className='nm-val empty';}
+  const badge=document.getElementById('insp-badge');
+  badge.textContent=label;
+  badge.style.background=color+'22';badge.style.borderColor=color+'88';badge.style.color=color;
+  document.getElementById('insp-verts').textContent=meta.nVerts.toLocaleString();
+  document.getElementById('insp-tris').textContent=meta.nTris.toLocaleString();
+  const f1=v=>isFinite(v)?v.toFixed(2):'—';
+  document.getElementById('insp-size').textContent=f1(meta.sizeX)+' × '+f1(meta.sizeY)+' × '+f1(meta.sizeZ);
+  const arEl=document.getElementById('insp-ar');
+  arEl.textContent=f1(meta.aspectRatio);arEl.className='ival'+(meta.aspectRatio>=1.5?' hi':'');
+  document.getElementById('insp-zcen').textContent=f1(meta.zCenter);
+  document.getElementById('insp-dz').textContent=f1(meta.sizeZ)+' m';
+  const crossBadge=document.getElementById('insp-cross-badge');
+  if(meta.isCross&&cls!=='pile')crossBadge.style.display='block';
+  else crossBadge.style.display='none';
+  const sc=document.getElementById('insp-score-val');
+  let reason='';
+  if(cls==='pile')reason='수직 & h≥3m & 기준면 완전 아래';
+  else if(cls==='pipe')reason='tri=128 & vert≥90';
+  else if(cls==='tee')reason='tri=256 & vert≥196';
+  else reason='기타';
+  sc.textContent=label+' — '+reason;sc.style.color=color;sc.style.fontSize='10px';
+  const fill=document.getElementById('insp-score-fill');
+  const pct=cls==='pipe'?100:cls==='pile'?90:cls==='tee'?80:20;
+  fill.style.width=pct+'%';fill.style.background=color;
+}
+function closeInspector(){clearHL();document.getElementById('inspector').classList.remove('sh');document.getElementById('vhi').style.display='block';}
+
+
+/* ════════════════════════════════════════════
+   EXPORT DXF — AC1009 (R12), mm 단위
+════════════════════════════════════════════ */
+function exportDXF(){
+  if(!S.edges2d){toast('먼저 2D 추출을 실행하세요','er');return;}
+  const dashLen = parseFloat(document.getElementById('dash-len').value)||50;
+  const gapLen  = parseFloat(document.getElementById('gap-len').value)||25;
+  const patTotal= dashLen+gapLen;
+  const pileDash= Math.round(dashLen*0.6);
+  const pileGap = Math.round(gapLen*0.6);
+  const pileTot = pileDash+pileGap;
+  toast('DXF 생성 중... (기준 아래만, mm단위, 대시'+dashLen+'/간격'+gapLen+')','');
+  setTimeout(function(){
+    try{_doExportDXF(dashLen,gapLen,patTotal,pileDash,pileGap,pileTot);}
+    catch(err){addLog('DXF 오류: '+err.message,'er');console.error(err);toast('DXF 오류: '+err.message,'er');}
+  },60);
+}
+
+function _doExportDXF(dashLen,gapLen,patTotal,pileDash,pileGap,pileTot){
+  const{pipeEdges,teeEdges,pileEdges,normalEdges}=S.edges2d;
+  const MM=1000;
+  const fmm=v=>(v*MM).toFixed(4);
+
+  function dedup(arr){
+    const seen=new Set(),out=[];
+    for(const e of arr){
+      const dx=e.x2-e.x1,dy=e.y2-e.y1;if(dx*dx+dy*dy<1e-12)continue;
+      const x1=Math.round(e.x1*1000),y1=Math.round(e.y1*1000),x2=Math.round(e.x2*1000),y2=Math.round(e.y2*1000);
+      const a=x1<x2||(x1===x2&&y1<y2);
+      const ks=a?x1+'|'+y1+'|'+x2+'|'+y2:x2+'|'+y2+'|'+x1+'|'+y1;
+      if(seen.has(ks))continue;seen.add(ks);out.push(e);
+    }
+    return out;
+  }
+
+  const pA=dedup(pipeEdges.filter(e=>e.isAbove&&e.isCrossing));
+  const tA=dedup(teeEdges.filter(e=>e.isAbove&&e.isCrossing));
+  const nA=dedup(normalEdges.filter(e=>e.isAbove&&e.isCrossing));
+  const pB=dedup(pipeEdges.filter(e=>!e.isAbove));
+  const tB=dedup(teeEdges.filter(e=>!e.isAbove));
+  const nB=dedup(normalEdges.filter(e=>!e.isAbove));
+  const pileAll=dedup(pileEdges);
+
+  const all=[...pA,...pB,...tA,...tB,...nA,...nB,...pileAll];
+  if(!all.length){toast('출력할 엣지가 없습니다 (Z 기준 확인)','wn');addLog('DXF 경고: 엣지 0개','wn');return;}
+
+  let xMin=Infinity,xMax=-Infinity,yMin=Infinity,yMax=-Infinity;
+  for(const e of all){
+    const ax=e.x1*MM,ay=e.y1*MM,bx=e.x2*MM,by=e.y2*MM;
+    if(ax<xMin)xMin=ax;if(ax>xMax)xMax=ax;if(bx<xMin)xMin=bx;if(bx>xMax)xMax=bx;
+    if(ay<yMin)yMin=ay;if(ay>yMax)yMax=ay;if(by<yMin)yMin=by;if(by>yMax)yMax=by;
+  }
+
+  const L=[];
+  const p=(code,val)=>{L.push(String(code));L.push(String(val));};
+  const fd=v=>v.toFixed(6);
+
+  const vcx=(xMin+xMax)/2;
+  const vcy=(yMin+yMax)/2;
+  const vszY=(yMax-yMin)*1.15||1000.0;
+
+  p(0,'SECTION');p(2,'HEADER');
+  p(9,'$ACADVER'); p(1,'AC1009');
+  p(9,'$INSBASE');  p(10,'0.000000'); p(20,'0.000000'); p(30,'0.000000');
+  p(9,'$EXTMIN');   p(10,fd(xMin));   p(20,fd(yMin));   p(30,'0.000000');
+  p(9,'$EXTMAX');   p(10,fd(xMax));   p(20,fd(yMax));   p(30,'0.000000');
+  p(9,'$LIMMIN');   p(10,fd(xMin));   p(20,fd(yMin));
+  p(9,'$LIMMAX');   p(10,fd(xMax));   p(20,fd(yMax));
+  p(9,'$VIEWCTR');  p(10,fd(vcx));    p(20,fd(vcy));
+  p(9,'$VIEWSIZE'); p(40,fd(vszY));
+  p(9,'$LTSCALE');  p(40,'1.000000');
+  p(9,'$PSLTSCALE');p(70,0);
+  p(9,'$INSUNITS'); p(70,4);
+  p(9,'$MEASUREMENT');p(70,1);
+  p(9,'$LUPREC');   p(70,0);
+  p(9,'$LUNITS');   p(70,2);
+  p(9,'$AUPREC');   p(70,0);
+  p(0,'ENDSEC');
+
+  p(0,'SECTION');p(2,'TABLES');
+
+  p(0,'TABLE');p(2,'LTYPE');p(70,3);
+  p(0,'LTYPE');p(2,'CONTINUOUS');p(70,0);p(3,'Solid line');p(72,65);p(73,0);p(40,'0.000000');
+  p(0,'LTYPE');p(2,'PLAN_DASHED');p(70,0);p(3,'__ __ __');p(72,65);p(73,2);
+  p(40,patTotal.toFixed(6));p(49,dashLen.toFixed(6));p(49,(-gapLen).toFixed(6));
+  p(0,'LTYPE');p(2,'PILE_DASHED');p(70,0);p(3,'. . . .');p(72,65);p(73,2);
+  p(40,pileTot.toFixed(6));p(49,pileDash.toFixed(6));p(49,(-pileGap).toFixed(6));
+  p(0,'ENDTAB');
+
+  const hasAbove=pA.length>0||tA.length>0||nA.length>0;
+  const layerDefs=[];
+  if(hasAbove){
+    layerDefs.push(['PIPE',  3,'CONTINUOUS']);
+    layerDefs.push(['TEE',   3,'CONTINUOUS']);
+    layerDefs.push(['NORMAL',3,'CONTINUOUS']);
+  }
+  layerDefs.push(['PIPE_DASH',8,'PLAN_DASHED']);
+  layerDefs.push(['TEE_DASH', 8,'PLAN_DASHED']);
+  layerDefs.push(['NORM_DASH',8,'PLAN_DASHED']);
+  layerDefs.push(['PILE',     2,'PILE_DASHED']);
+
+  p(0,'TABLE');p(2,'LAYER');p(70,layerDefs.length+1);
+  p(0,'LAYER');p(2,'0');p(70,0);p(62,7);p(6,'CONTINUOUS');
+  for(const[name,aci,ltype]of layerDefs){p(0,'LAYER');p(2,name);p(70,0);p(62,aci);p(6,ltype);}
+  p(0,'ENDTAB');
+
+  p(0,'TABLE');p(2,'VPORT');p(70,1);
+  p(0,'VPORT');
+  p(2,'*ACTIVE');
+  p(70,0);
+  p(10,fd(0));p(20,fd(0));
+  p(11,fd(1));p(21,fd(1));
+  p(12,fd(vcx));p(22,fd(vcy));
+  p(13,'0.000000');p(23,'0.000000');
+  p(14,'10.000000');p(24,'10.000000');
+  p(15,'0.000000');p(25,'0.000000');
+  p(16,'0.000000');p(26,'0.000000');p(36,'1.000000');
+  p(17,'0.000000');p(27,'0.000000');p(37,'0.000000');
+  p(40,fd(vszY));
+  p(41,fd((xMax-xMin)/(yMax-yMin||1)));
+  p(42,'50.000000');
+  p(43,'0.000000');p(44,'0.000000');
+  p(50,'0.000000');p(51,'0.000000');
+  p(71,0);p(72,100);p(73,1);p(74,3);p(75,0);p(76,0);p(77,0);p(78,0);
+  p(0,'ENDTAB');
+
+  p(0,'ENDSEC');
+
+  p(0,'SECTION');p(2,'BLOCKS');p(0,'ENDSEC');
+
+  p(0,'SECTION');p(2,'ENTITIES');
+
+  function addLines(edges,layer,ltype,aci,useDash){
+    for(const e of edges){
+      p(0,'LINE');
+      p(8,layer);
+      p(6,ltype);
+      p(62,aci);
+      if(useDash) p(48,'1.000000');
+      p(10,fmm(e.x1));p(20,fmm(e.y1));p(30,'0.000000');
+      p(11,fmm(e.x2));p(21,fmm(e.y2));p(31,'0.000000');
+    }
+  }
+
+  if(hasAbove){
+    addLines(pA,'PIPE','CONTINUOUS',3,false);
+    addLines(tA,'TEE','CONTINUOUS',3,false);
+    addLines(nA,'NORMAL','CONTINUOUS',3,false);
+  }
+  addLines(pB,'PIPE_DASH','PLAN_DASHED',8,true);
+  addLines(tB,'TEE_DASH','PLAN_DASHED',8,true);
+  addLines(nB,'NORM_DASH','PLAN_DASHED',8,true);
+  addLines(pileAll,'PILE','PILE_DASHED',2,true);
+
+  p(0,'ENDSEC');
+  p(0,'EOF');
+
+  if(L.length%2!==0){addLog('DXF 내부 오류: 홀수 행 ('+L.length+')','er');return;}
+
+  const txt=L.join('\r\n')+'\r\n';
+  const blob=new Blob([txt],{type:'application/dxf'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download='plan_pipe_below_mm.dxf';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+
+  const totLines=pA.length+tA.length+nA.length+pB.length+tB.length+nB.length+pileAll.length;
+  addLog('[기준 아래만] DXF 저장 완료 · 총 '+totLines+'선'
+    +' (걸침실선: P'+pA.length+' T'+tA.length+' N'+nA.length+')'
+    +' (점선: P'+pB.length+' T'+tB.length+' N'+nB.length+' Pile'+pileAll.length+')'
+    +' | 대시'+dashLen+'mm/간격'+gapLen+'mm'
+    +' · '+(blob.size/1024).toFixed(0)+'KB','ok');
+  toast('DXF 저장 완료 ('+totLines+'선, 기준 아래만)','ok');
+}
+
+function resetAll(){
+  hideOverlay();
+  S.buf=S.geos=S.edges2d=S.zRange=null;S.running=false;S.colorMode=true;
+  selIdx=-1;origColors.clear();
+  document.getElementById('fi').textContent='파일 없음';
+  document.getElementById('dz').style.borderColor='';
+  document.getElementById('log').textContent='FBX 파일을 업로드하세요';
+  [1,2,3].forEach(n=>{document.getElementById('d'+n).className='sd';document.getElementById('l'+n).className='sl';document.getElementById('p'+n).textContent='';});
+  document.getElementById('pb').style.width='0%';document.getElementById('pct').textContent='0%';
+  document.getElementById('zrange-txt').textContent='—';
+  document.getElementById('btn-extract').disabled=true;document.getElementById('btn-dxf').disabled=true;
+  document.getElementById('vov').classList.remove('h');document.getElementById('vlegend').style.display='none';
+  document.getElementById('stat-section').style.display='none';document.getElementById('classify-result-txt').textContent='';
+  document.getElementById('crossing-info').style.display='none';
+  document.getElementById('inspector').classList.remove('sh');
+  ['pipe','tee','pile','normal'].forEach(k=>{document.getElementById('lc-'+k).textContent='—';});
+  if(S.scene){
+    S.meshes.forEach(o=>S.scene.remove(o));S.meshes=[];S.meshMeta=[];
+    if(zPlaneMesh){if(zPlaneMesh.userData.borderLine)S.scene.remove(zPlaneMesh.userData.borderLine);S.scene.remove(zPlaneMesh);zPlaneMesh=null;}
+  }
+}
+</script>
+</body>
+</html>
