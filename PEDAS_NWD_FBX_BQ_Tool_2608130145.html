@@ -1,0 +1,1268 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>PEDAS·NWD v3 — FBX/NWD 3D Viewer + Earthwork BQ</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--bg:#0d1117;--panel:#161b22;--card:#1c2128;--border:#30363d;--accent:#2f81f7;--green:#3fb950;--warn:#f0883e;--red:#f85149;--purple:#bc8cff;--text:#e6edf3;--muted:#8b949e;--dim:#6e7681;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden;font-size:12px}
+.topbar{background:var(--panel);border-bottom:1px solid var(--border);height:44px;display:flex;align-items:center;gap:10px;padding:0 12px;flex-shrink:0;z-index:20}
+.logo{font-size:15px;font-weight:800;color:var(--accent);white-space:nowrap}.logo span{color:var(--green)}
+.sep{width:1px;height:22px;background:var(--border);flex-shrink:0}
+.dz{border:1.5px dashed var(--border);border-radius:6px;padding:5px 14px;font-size:11.5px;color:var(--muted);cursor:pointer;transition:all .2s;white-space:nowrap}
+.dz:hover,.dz.drag{border-color:var(--accent);color:var(--accent);background:rgba(47,129,247,.07)}
+.dz.loaded{border-color:var(--green);border-style:solid;color:var(--green)}
+.pg{flex:1;max-width:160px;height:5px;background:var(--border);border-radius:3px;overflow:hidden;display:none}
+.pgf{height:100%;background:var(--accent);transition:width .2s;width:0}
+.sm{font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:300px}
+.sm.ok{color:var(--green)}.sm.err{color:var(--red)}
+.tbs{display:flex;gap:5px;margin-left:auto}
+.btn{border:1px solid var(--border);background:var(--card);color:var(--text);padding:4px 11px;border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit;transition:all .15s;white-space:nowrap}
+.btn:hover{border-color:var(--accent);color:var(--accent)}.btn.grn{background:var(--green);border-color:var(--green);color:#000;font-weight:700}.btn.grn:hover{background:#2ea043}.btn:disabled{opacity:.35;cursor:not-allowed}
+.tabbar{background:var(--panel);border-bottom:1px solid var(--border);display:flex;padding:0 10px;gap:2px;flex-shrink:0}
+.tab{padding:8px 15px;font-size:12px;font-weight:600;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap}
+.tab:hover{color:var(--text)}.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.main{display:flex;flex:1;min-height:0;overflow:hidden}
+/* LEFT */
+.left{width:232px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden}
+.lsc{padding:9px 11px;border-bottom:1px solid var(--border)}
+.lt{font-size:9px;text-transform:uppercase;letter-spacing:1.2px;color:var(--dim);margin-bottom:7px;font-weight:700}
+.sr{display:flex;justify-content:space-between;padding:2px 0;font-size:11px}.sr .l{color:var(--muted)}.sr .v{font-family:monospace;font-weight:600}
+/* slope panel */
+.sp{padding:9px 11px;border-bottom:1px solid var(--border)}
+.slope-skc{width:100%;height:100px;background:var(--card);border-radius:4px;border:1px solid var(--border);display:block;margin-bottom:7px}
+.sp-row{display:flex;align-items:center;gap:6px;margin-bottom:5px}
+.sp-row label{font-size:10px;color:var(--muted);width:44px;white-space:nowrap}
+.si{background:var(--card);border:1px solid var(--border);color:var(--text);padding:3px 7px;border-radius:4px;font-size:11.5px;width:58px;font-family:monospace}
+.si:focus{outline:none;border-color:var(--accent)}
+.sdsp{font-size:11px;color:var(--accent);font-weight:700;font-family:monospace}
+.sprst{display:flex;gap:3px;flex-wrap:wrap;margin-top:4px}
+.spr{border:1px solid var(--border);background:var(--card);color:var(--muted);border-radius:4px;font-size:9.5px;cursor:pointer;transition:all .1s;padding:3px 6px;display:flex;flex-direction:column;align-items:center;gap:1px;min-width:46px}
+.spr:hover{border-color:var(--accent);color:var(--accent)}.spr.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.spr-val{font-size:10.5px;font-weight:700;font-family:monospace}
+.spr-lbl{font-size:8.5px;color:inherit;opacity:.8;line-height:1.2;text-align:center}
+.spr-edit{font-size:8px;color:var(--dim);cursor:pointer;text-decoration:underline dotted;margin-top:1px}
+/* struct list */
+.sl{overflow-y:auto;flex:1;padding:5px}
+.si2{display:flex;align-items:center;gap:6px;padding:5px 7px;border-radius:5px;cursor:pointer;transition:background .1s;border:1px solid transparent;margin-bottom:2px}
+.si2:hover{background:rgba(47,129,247,.08)}.si2.active{background:rgba(47,129,247,.15);border-color:rgba(47,129,247,.3)}
+.si2 .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.si2 .inf{flex:1;min-width:0}.si2 .sn{font-size:11px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.si2 .sd{font-size:9.5px;color:var(--muted);font-family:monospace}
+.si2 .bg{font-size:9px;font-family:monospace;padding:1px 5px;border-radius:3px;background:rgba(248,81,73,.15);color:var(--red);white-space:nowrap}
+/* 3d */
+.v3{flex:1;position:relative;background:#060b14;overflow:hidden}
+.v3 canvas{display:block;width:100%;height:100%;outline:none}
+.v3e{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;pointer-events:none}
+.v3e .ic{font-size:48px;opacity:.2}.v3e .tx{font-size:13px;color:var(--muted);text-align:center;line-height:1.7}
+.v3c{position:absolute;top:10px;right:10px;display:flex;flex-direction:column;gap:4px}
+.v3i{position:absolute;bottom:10px;left:10px;background:rgba(13,17,23,.82);border:1px solid var(--border);border-radius:5px;padding:6px 10px;font-size:10px;color:var(--muted);font-family:monospace;line-height:1.6}
+.v3lg{position:absolute;top:10px;left:242px;background:rgba(13,17,23,.82);border:1px solid var(--border);border-radius:5px;padding:7px 10px;font-size:10px;color:var(--muted)}
+.v3lr{display:flex;align-items:center;gap:6px;margin-bottom:3px}.v3lb{width:12px;height:10px;border-radius:2px}
+.v3sb{position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(47,129,247,.15);border:1px solid rgba(47,129,247,.4);border-radius:5px;padding:4px 14px;font-size:11px;color:var(--accent);font-weight:700}
+/* panes */
+.pn{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}.pn.hidden{display:none}
+.ptb{background:var(--panel);border-bottom:1px solid var(--border);padding:7px 14px;display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap}
+.ptb b{font-size:12.5px}
+.pct{flex:1;overflow:auto;padding:14px}
+/* bq */
+.bqs{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px}
+.bqc{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:10px 12px;border-top:3px solid var(--accent)}
+.bqc.red{border-top-color:var(--red)}.bqc.grn{border-top-color:var(--green)}.bqc.warn{border-top-color:var(--warn)}.bqc.pur{border-top-color:var(--purple)}
+.bqc .cl{font-size:9px;text-transform:uppercase;letter-spacing:.9px;color:var(--muted);margin-bottom:4px}
+.bqc .cv{font-size:18px;font-weight:800;font-family:monospace;color:var(--accent)}
+.bqc.red .cv{color:var(--red)}.bqc.grn .cv{color:var(--green)}.bqc.warn .cv{color:var(--warn)}.bqc.pur .cv{color:var(--purple)}
+.bqc .cs{font-size:9.5px;color:var(--dim);margin-top:2px}
+.bqw{background:var(--panel);border:1px solid var(--border);border-radius:7px;overflow:hidden;margin-bottom:14px}
+.bqt{width:100%;border-collapse:collapse;font-size:11px}
+.bqt th{background:var(--card);color:var(--muted);text-transform:uppercase;font-size:9px;letter-spacing:.7px;padding:7px 10px;text-align:left;position:sticky;top:0;white-space:nowrap;border-bottom:1px solid var(--border)}
+.bqt td{padding:7px 10px;border-bottom:1px solid rgba(48,54,61,.4);vertical-align:top}
+.bqt tr:last-child td{border:none}.bqt tr:hover td{background:rgba(47,129,247,.03)}
+.bqt .num{text-align:right;font-family:monospace;font-weight:700;color:var(--accent)}
+.bqt .code{font-family:monospace;font-size:10px;color:var(--accent)}
+.bqt .unit{text-align:center;color:var(--accent);font-size:10.5px;font-weight:600}
+/* 산출근거: unit 색과 동일하게 */
+.bqt .formula{font-size:9.5px;color:var(--accent);font-family:monospace;font-weight:500}
+.bqt .calc{font-size:9.5px;color:var(--warn);font-family:monospace;font-weight:600}
+.bqt .sec td{background:rgba(47,129,247,.1);color:var(--accent);font-weight:700;font-size:11px;padding:6px 10px;border-left:3px solid var(--accent)}
+.bqt .sub td{background:var(--card);font-weight:700;color:var(--green)}
+.bqt .tot td{background:var(--eng,#1e3a5f);color:#fff;font-weight:800;font-size:12px}
+/* drawing */
+.dts{display:flex;gap:4px;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--border)}
+.dtb{padding:4px 12px;border-radius:4px;font-size:11px;cursor:pointer;color:var(--muted);border:1px solid var(--border)}
+.dtb.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.da{flex:1;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:14px}
+.dc{background:var(--panel);border:1px solid var(--border);border-radius:7px;overflow:hidden}
+.dc h4{padding:8px 14px;font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;border-bottom:1px solid var(--border)}
+.note{font-size:10px;color:var(--dim);padding:6px 10px;background:rgba(47,129,247,.05);border:1px solid rgba(47,129,247,.15);border-radius:4px;line-height:1.7;margin-top:10px}
+select{background:var(--card);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:4px;font-size:11px;font-family:inherit}
+input[type=file]{display:none}
+/* modal for label edit */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;display:none;align-items:center;justify-content:center}
+.modal-bg.show{display:flex}
+.modal{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:20px;min-width:260px}
+.modal h3{font-size:13px;margin-bottom:12px;color:var(--text)}
+.modal input{width:100%;background:var(--card);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;font-family:monospace;margin-bottom:10px}
+.modal input:focus{outline:none;border-color:var(--accent)}
+.modal-btns{display:flex;gap:8px;justify-content:flex-end}
+</style>
+</head>
+<body>
+
+<!-- MODAL for label edit -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <h3>Edit Slope Label</h3>
+    <div id="modalTarget" style="font-size:11px;color:var(--muted);margin-bottom:8px"></div>
+    <input type="number" id="modalVal" step="0.1" min="0.1" max="10" placeholder="Slope value (e.g. 0.5)">
+    <input type="text" id="modalLbl" placeholder="Label (e.g. 경암)">
+    <div class="modal-btns">
+      <button class="btn" onclick="document.getElementById('modalBg').classList.remove('show')">Cancel</button>
+      <button class="btn grn" onclick="savePreset()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="topbar">
+  <div class="logo">PEDAS<span>·NWD</span></div>
+  <div class="sep"></div>
+  <div class="dz" id="dz" onclick="document.getElementById('fi').click()">📂 FBX / NWD 업로드</div>
+  <input type="file" id="fi" accept=".fbx,.nwd,.nwc">
+  <div class="pg" id="pb"><div class="pgf" id="pf"></div></div>
+  <div class="sm" id="sm">FBX 또는 NWD 파일을 업로드하면 자동 분석됩니다</div>
+  <div class="tbs">
+    <button class="btn" id="bW" onclick="toggleWire()" disabled>□ Wire</button>
+    <button class="btn" id="bF" onclick="fitView()" disabled>⛶ Fit</button>
+    <button class="btn grn" id="bE" onclick="exportBQ()" disabled>⬇ BQ Excel</button>
+  </div>
+</div>
+
+<div class="tabbar">
+  <div class="tab active" id="t3d" onclick="sw('3d')">🏗 3D View</div>
+  <div class="tab" id="tBQ" onclick="sw('bq')">📊 BQ Quantity</div>
+  <div class="tab" id="tDr" onclick="sw('dr')">📐 2D Drawing</div>
+</div>
+
+<div class="main">
+<div class="left">
+  <div class="lsc">
+    <div class="lt">Model Info</div>
+    <div class="sr"><span class="l">FGL</span><span class="v" id="sFGL">—</span></div>
+    <div class="sr"><span class="l">Structures</span><span class="v" id="sCnt">—</span></div>
+    <div class="sr"><span class="l">Total Excavation</span><span class="v" id="sExc">—</span></div>
+  </div>
+
+  <div class="sp">
+    <div class="lt">Excavation Slope H:V</div>
+    <canvas class="slope-skc" id="skc" width="210" height="80"></canvas>
+    <div class="sp-row">
+      <label>H : V = 1 :</label>
+      <input class="si" id="slopeH" type="number" value="1.0" min="0.1" max="10" step="0.1" oninput="onSl()">
+      <span class="sdsp" id="sdsp">= 1:1</span>
+    </div>
+    <div class="sprst" id="presets">
+      <!-- 동적 생성 -->
+    </div>
+  </div>
+
+  <div class="lsc"><div class="lt">Structures</div></div>
+  <div class="sl" id="sl"><div style="color:var(--dim);font-size:11px;padding:8px">FBX/NWD 로드 후 표시</div></div>
+</div>
+
+<div id="p3d" class="v3">
+  <div class="v3e" id="v3e">
+    <div class="ic">🏗</div>
+    <div class="tx">Navisworks FBX 또는 NWD 파일을 업로드하세요<br><small style="color:var(--dim)">폴더 단위 구조물 · 터파기 Slope 3D 시각화</small></div>
+  </div>
+  <div class="v3c" id="v3c" style="display:none">
+    <button class="btn" onclick="setV('iso')">ISO</button>
+    <button class="btn" onclick="setV('top')">TOP</button>
+    <button class="btn" onclick="setV('fr')">FRONT</button>
+    <button class="btn" onclick="setV('sd')">SIDE</button>
+    <button class="btn" id="bExc" onclick="togE()">Excav ON</button>
+    <button class="btn" id="bFGL" onclick="togFGL()">FGL ON</button>
+  </div>
+  <div class="v3lg" id="v3l" style="display:none">
+    <div class="v3lr"><div class="v3lb" style="background:#4CAF50;opacity:.8"></div><span>Structure</span></div>
+    <div class="v3lr"><div class="v3lb" style="background:#F44336;opacity:.5"></div><span>Excav Slope</span></div>
+    <div class="v3lr"><div class="v3lb" style="background:#2196F3;opacity:.5"></div><span>FGL Ground</span></div>
+  </div>
+  <div class="v3sb" id="v3sb" style="display:none">Slope 1:1</div>
+  <div class="v3i" id="v3i" style="display:none"></div>
+</div>
+
+<div id="pBQ" class="pn hidden">
+  <div class="ptb">
+    <b>📊 BQ Quantity — PEDAS BQ Code · KDS 국가표준 기준</b>
+    <select id="bqSel" onchange="renderBQ()" style="margin-left:8px">
+      <option value="all">All Structures</option>
+    </select>
+    <button class="btn grn" style="margin-left:auto" onclick="exportBQ()">⬇ Excel</button>
+  </div>
+  <div class="pct" id="bqC"><div style="color:var(--muted);text-align:center;padding:40px">Upload FBX/NWD to generate BQ</div></div>
+</div>
+
+<div id="pDr" class="pn hidden">
+  <div class="ptb">
+    <b>📐 2D Drawing — Plan + Section A-A / B-B + Rebar</b>
+    <select id="drSel" onchange="renderDraw()" style="margin-left:8px"><option value="">Select Structure...</option></select>
+  </div>
+  <div class="dts" id="dts">
+    <div class="dtb active" onclick="swDt('plan',this)">Plan View</div>
+    <div class="dtb" onclick="swDt('secAA',this)">Section A-A</div>
+    <div class="dtb" onclick="swDt('secBB',this)">Section B-B</div>
+    <div class="dtb" onclick="swDt('rebar',this)">Rebar Arrangement</div>
+    <div class="dtb" onclick="swDt('all',this)">All Views</div>
+  </div>
+  <div class="da" id="da"><div style="color:var(--muted);text-align:center;padding:40px">Select a structure to generate drawings</div></div>
+</div>
+</div>
+
+<script>
+/* ============================================================ GLOBALS */
+let MODEL=null,V3=null,V3RAF=null,WIRE=false,SLOPE=1.0,EO=true,FO=true,ACT=null,DT='plan';
+let editPresetIdx=null;
+const COLS=[0x4CAF50,0x2196F3,0xFF9800,0x9C27B0,0xF44336,0x00BCD4,0xFF5722,0x8BC34A,0xE91E63,0x3F51B5];
+let excGrps={},fglM=null;
+
+/* slope presets (editable) */
+const PRESETS=[
+  {val:1.0,lbl:'일반/암반',editable:true},
+  {val:0.5,lbl:'경암',editable:true},
+  {val:1.5,lbl:'토사',editable:true},
+  {val:0.3,lbl:'Hard Rock',editable:true},
+];
+
+/* ── 날짜 포맷 YYMMDDHHMM */
+function fmtDate(){const n=new Date();return String(n.getFullYear()).slice(2)+String(n.getMonth()+1).padStart(2,'0')+String(n.getDate()).padStart(2,'0')+String(n.getHours()).padStart(2,'0')+String(n.getMinutes()).padStart(2,'0');}
+
+/* tabs */
+function sw(n){
+  ['3d','bq','dr'].forEach(t=>{
+    const id='t'+(t==='3d'?'3d':t==='bq'?'BQ':'Dr');
+    document.getElementById(id).classList.toggle('active',t===n);
+    const pid='p'+(t==='3d'?'3d':t==='bq'?'BQ':'Dr');
+    if(t==='3d')document.getElementById('p3d').style.display=n==='3d'?'block':'none';
+    else document.getElementById(pid).classList.toggle('hidden',t!==n);
+  });
+  if(n==='3d'&&V3)setTimeout(rzV3,50);
+  if(n==='bq'&&MODEL)renderBQ();
+  if(n==='dr'&&MODEL)renderDraw();
+}
+
+/* drag/drop */
+const dzel=document.getElementById('dz');
+dzel.addEventListener('dragover',e=>{e.preventDefault();dzel.classList.add('drag')});
+dzel.addEventListener('dragleave',()=>dzel.classList.remove('drag'));
+dzel.addEventListener('drop',e=>{e.preventDefault();dzel.classList.remove('drag');const f=e.dataTransfer.files[0];if(f)loadFile(f);else setSt('err','FBX/NWD files only')});
+document.getElementById('fi').addEventListener('change',e=>{if(e.target.files[0])loadFile(e.target.files[0]);e.target.value='';});
+function setSt(t,m){const el=document.getElementById('sm');el.textContent=m;el.className='sm '+(t||'')}
+function setPg(p){const b=document.getElementById('pb'),f=document.getElementById('pf');b.style.display=p<0?'none':'block';f.style.width=p+'%'}
+
+/* ============================================================ SLOPE */
+function buildPresets(){
+  const c=document.getElementById('presets');c.innerHTML='';
+  PRESETS.forEach((p,i)=>{
+    const el=document.createElement('div');el.className='spr'+(SLOPE===p.val?' active':'');
+    el.innerHTML=`<span class="spr-val">1:${p.val}</span><span class="spr-lbl">${p.lbl}</span><span class="spr-edit" onclick="openEdit(${i},event)">✎ edit</span>`;
+    el.onclick=(e)=>{if(e.target.classList.contains('spr-edit'))return;applyPreset(i);};
+    c.appendChild(el);
+  });
+}
+function applyPreset(i){
+  SLOPE=PRESETS[i].val;
+  document.getElementById('slopeH').value=SLOPE;
+  document.getElementById('sdsp').textContent=`= 1:${SLOPE.toFixed(2)}`;
+  document.querySelectorAll('.spr').forEach((el,j)=>el.classList.toggle('active',j===i));
+  document.getElementById('v3sb').textContent=`Slope H:V = 1:${SLOPE.toFixed(2)} (${PRESETS[i].lbl})`;
+  drawSketch();if(MODEL){updateExcav();updStats();}
+  if(!document.getElementById('pBQ').classList.contains('hidden'))renderBQ();
+}
+function onSl(){
+  SLOPE=Math.max(0.1,Math.min(10,parseFloat(document.getElementById('slopeH').value)||1.0));
+  document.getElementById('sdsp').textContent=`= 1:${SLOPE.toFixed(2)}`;
+  document.querySelectorAll('.spr').forEach(el=>el.classList.remove('active'));
+  document.getElementById('v3sb').textContent=`Slope H:V = 1:${SLOPE.toFixed(2)}`;
+  drawSketch();if(MODEL){updateExcav();updStats();}
+  if(!document.getElementById('pBQ').classList.contains('hidden'))renderBQ();
+}
+function openEdit(i,e){
+  e.stopPropagation();editPresetIdx=i;
+  document.getElementById('modalTarget').textContent=`Preset ${i+1}: current = 1:${PRESETS[i].val} "${PRESETS[i].lbl}"`;
+  document.getElementById('modalVal').value=PRESETS[i].val;
+  document.getElementById('modalLbl').value=PRESETS[i].lbl;
+  document.getElementById('modalBg').classList.add('show');
+}
+function savePreset(){
+  if(editPresetIdx===null)return;
+  const v=parseFloat(document.getElementById('modalVal').value)||PRESETS[editPresetIdx].val;
+  const l=document.getElementById('modalLbl').value||PRESETS[editPresetIdx].lbl;
+  PRESETS[editPresetIdx].val=Math.max(0.1,Math.min(10,v));
+  PRESETS[editPresetIdx].lbl=l;
+  document.getElementById('modalBg').classList.remove('show');
+  buildPresets();
+}
+document.getElementById('modalBg').addEventListener('click',e=>{if(e.target===e.currentTarget)e.currentTarget.classList.remove('show');});
+
+/* slope sketch — 이미지3처럼 우측 삼각형 다이어그램 */
+function drawSketch(){
+  const c=document.getElementById('skc'),ctx=c.getContext('2d');
+  const W=c.width,H=c.height;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#1c2128';ctx.fillRect(0,0,W,H);
+  const PAD=10,gW=W-PAD*2,gH=H-PAD*2;
+  // 지반 (흙) - 배경 전체
+  ctx.fillStyle='rgba(139,90,43,.25)';ctx.fillRect(PAD,PAD,gW,gH);
+  // FGL = 위쪽 y (지표면)
+  const fglY=PAD+11;
+  // BOF = 아래쪽 y (기초바닥)
+  const bofY=PAD+gH-6;
+  const digH=bofY-fglY;
+  // 구조물 폭 (BOF 레벨 = 아래 = 좁음)
+  const stW=gW*0.36,cX=PAD+gW/2;
+  const bL=cX-stW/2,bR=cX+stW/2;
+  // slope 오프셋: FGL 레벨이 더 넓음
+  const soff=Math.min(digH*SLOPE*0.75,gW*0.27);
+  const tL=bL-soff,tR=bR+soff;
+  // 굴착 공간 (어두운 배경으로 덮기)
+  ctx.fillStyle='rgba(13,17,23,.8)';
+  ctx.beginPath();ctx.moveTo(tL,fglY);ctx.lineTo(bL,bofY);ctx.lineTo(bR,bofY);ctx.lineTo(tR,fglY);ctx.closePath();ctx.fill();
+  // slope 경계 (빨간 파선)
+  ctx.strokeStyle='#F44336';ctx.lineWidth=1.5;ctx.setLineDash([4,2]);
+  ctx.beginPath();ctx.moveTo(tL,fglY);ctx.lineTo(bL,bofY);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(tR,fglY);ctx.lineTo(bR,bofY);ctx.stroke();
+  ctx.setLineDash([]);
+  // 콘크리트 구조물 (BOF 레벨에 붙어서 위로)
+  const concH=digH*0.58;
+  ctx.fillStyle='rgba(33,150,243,.55)';ctx.strokeStyle='#2196F3';ctx.lineWidth=1.5;
+  ctx.fillRect(bL+2,bofY-concH,stW-4,concH);ctx.strokeRect(bL+2,bofY-concH,stW-4,concH);
+  // FGL 선 (위쪽)
+  ctx.strokeStyle='#3fb950';ctx.lineWidth=1.5;ctx.setLineDash([6,3]);
+  ctx.beginPath();ctx.moveTo(PAD,fglY);ctx.lineTo(W-PAD,fglY);ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle='#3fb950';ctx.font='bold 8.5px Arial';ctx.textAlign='left';ctx.fillText('FGL',PAD+2,fglY-2);
+  // BOF 선 (아래쪽)
+  ctx.strokeStyle='rgba(121,85,72,.8)';ctx.lineWidth=1;ctx.setLineDash([3,2]);
+  ctx.beginPath();ctx.moveTo(PAD,bofY);ctx.lineTo(W-PAD,bofY);ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle='rgba(200,150,100,.9)';ctx.font='8px Arial';ctx.textAlign='left';ctx.fillText('B.O.F',PAD+2,bofY+9);
+  // S= 라벨 (왼쪽 경사면)
+  const ang=Math.atan2(bofY-fglY,bL-tL);
+  ctx.save();ctx.translate((tL+bL)/2-5,(fglY+bofY)/2);ctx.rotate(ang);
+  ctx.fillStyle='#F44336';ctx.font='bold 8.5px Arial';ctx.textAlign='center';ctx.fillText('S='+SLOPE.toFixed(2),0,-3);ctx.restore();
+  // H 치수선 (오른쪽)
+  const hx=W-PAD-11;
+  ctx.strokeStyle='#888';ctx.lineWidth=0.7;
+  ctx.beginPath();ctx.moveTo(hx,fglY);ctx.lineTo(hx,bofY);ctx.stroke();
+  [fglY,bofY].forEach(y=>{ctx.beginPath();ctx.moveTo(hx-3,y);ctx.lineTo(hx+3,y);ctx.stroke();});
+  ctx.save();ctx.translate(hx+3,(fglY+bofY)/2);ctx.rotate(-Math.PI/2);
+  ctx.fillStyle='#888';ctx.font='8px Arial';ctx.textAlign='center';ctx.fillText('H',0,0);ctx.restore();
+  // S×H 수평 라벨 (상부, 좌측)
+  ctx.strokeStyle='rgba(244,67,54,.6)';ctx.lineWidth=0.7;
+  ctx.beginPath();ctx.moveTo(tL,fglY-7);ctx.lineTo(bL,fglY-7);ctx.stroke();
+  ctx.fillStyle='#F44336';ctx.font='7.5px Arial';ctx.textAlign='center';
+  ctx.fillText('S·H',(tL+bL)/2,fglY-9);
+  // 1:S 표시 (우하단)
+  ctx.fillStyle='#aaa';ctx.font='8px monospace';ctx.textAlign='right';
+  ctx.fillText('1:'+SLOPE.toFixed(2),W-PAD-15,bofY+9);
+}
+buildPresets();drawSketch();
+
+/* ============================================================ FILE LOAD */
+function loadFile(file){
+  const nm=file.name,ext=nm.split('.').pop().toLowerCase();
+  setSt('','📂 Loading '+nm);setPg(5);
+  dzel.textContent='⏳ Parsing...';dzel.className='dz';
+  if(ext==='nwd'||ext==='nwc'){
+    // NWD: ZIP-based container (newer versions) or legacy binary
+    const rd2=new FileReader();
+    rd2.onload=ev2=>{
+      const U8tmp=new Uint8Array(ev2.target.result.slice(0,8));
+      const magic=String.fromCharCode(...U8tmp.slice(0,4));
+      // ZIP magic: PK (50 4B 03 04)
+      if(U8tmp[0]===0x50&&U8tmp[1]===0x4B){
+        setSt('warn','⚠ NWD(ZIP포맷) 감지. 내부 FBX 추출 시도 중...');
+        tryExtractNWD_ZIP(ev2.target.result, nm);
+      } else {
+        setPg(-1);dzel.textContent='⚠ '+nm;dzel.className='dz';
+        setSt('warn','⚠ NWD/NWC 레거시 바이너리: 직접 파싱 불가. Navisworks에서 Export→FBX 7.x로 내보낸 후 FBX 파일 업로드하세요.');
+        document.getElementById('v3e').innerHTML=`<div class="ic">📋</div>
+          <div class="tx" style="color:var(--warn)">NWD 레거시 바이너리 포맷<br>
+          <small style="color:var(--dim)">Navisworks → File → Export → FBX (ver 7.x) → FBX 업로드</small></div>`;
+      }
+    };
+    rd2.readAsArrayBuffer(file.slice(0,8));
+    return;
+  }
+  if(ext!=='fbx'){setSt('err','FBX 파일만 직접 파싱 가능합니다');setPg(-1);return;}
+  const rd=new FileReader();
+  rd.onload=ev=>{
+    try{
+      setPg(20);setSt('','🔧 Parsing FBX ('+Math.round(ev.target.result.byteLength/1024/1024*10)/10+' MB)...');
+      setTimeout(()=>{
+        try{
+          MODEL=parseFBX(ev.target.result,nm);
+          setPg(70);buildScene(MODEL);buildPanels(MODEL);
+          setPg(100);setTimeout(()=>setPg(-1),400);
+          dzel.textContent='✅ '+nm;dzel.className='dz loaded';
+          setSt('ok',`✅ Done — FGL=EL.${MODEL.FGL.toFixed(3)}m · ${MODEL.structs.length} structures`);
+          ['bW','bF','bE'].forEach(id=>document.getElementById(id).disabled=false);
+        }catch(e){setSt('err','❌ '+e.message);dzel.textContent='❌ Error';dzel.className='dz';setPg(-1);console.error(e);}
+      },30);
+    }catch(e){setSt('err','Read error: '+e.message);setPg(-1);}
+  };
+  rd.readAsArrayBuffer(file);
+}
+
+
+/* ============================================================ NWD ZIP EXTRACTOR */
+function tryExtractNWD_ZIP(buf, filename){
+  // NWD newer versions are ZIP containers
+  // Try to find FBX-like geometry data inside
+  const U8 = new Uint8Array(buf);
+  // Scan for FBX signature inside ZIP
+  const FBX_SIG = [0x4B,0x61,0x79,0x64,0x61,0x72,0x61]; // 'Kaydara'
+  for(let i=0;i<Math.min(U8.length-7,2000000);i++){
+    if(U8[i]===FBX_SIG[0]&&U8[i+1]===FBX_SIG[1]&&U8[i+2]===FBX_SIG[2]){
+      const sub = buf.slice(i);
+      try{
+        MODEL = parseFBX(sub, filename);
+        setPg(70);buildScene(MODEL);buildPanels(MODEL);
+        setPg(100);setTimeout(()=>setPg(-1),400);
+        dzel.textContent='✅ '+filename;dzel.className='dz loaded';
+        setSt('ok','✅ NWD 내 FBX 추출 성공 — FGL=EL.'+MODEL.FGL.toFixed(3)+'m · '+MODEL.structs.length+' structures');
+        ['bW','bF','bE'].forEach(id=>document.getElementById(id).disabled=false);
+        return;
+      }catch(e){/* continue */}
+    }
+  }
+  // FBX not found in ZIP - try raw extraction
+  setPg(-1);dzel.textContent='⚠ '+filename;dzel.className='dz';
+  setSt('warn','⚠ NWD 내 FBX 시그니처 없음. Navisworks에서 직접 Export→FBX로 저장 후 업로드하세요. (Navisworks 2016+ → File → Export → FBX)');
+}
+
+/* ============================================================ FBX PARSER */
+function parseFBX(buf,filename){
+  const U8=new Uint8Array(buf),DV=new DataView(buf),dec=new TextDecoder('utf-8',{fatal:false});
+  if(!String.fromCharCode(...U8.slice(0,21)).startsWith('Kaydara FBX Binary'))throw new Error('Not a binary FBX file. Please export from Navisworks as FBX 7.x');
+  const ver=DV.getUint32(23,true),NZ=ver>=7500?25:13;
+  function rP(pos){
+    const t=String.fromCharCode(U8[pos]);pos++;
+    if(t==='S'){const l=DV.getUint32(pos,true);pos+=4;return{t,v:dec.decode(U8.slice(pos,pos+l)),end:pos+l};}
+    if(t==='I')return{t,v:DV.getInt32(pos,true),end:pos+4};
+    if(t==='D')return{t,v:DV.getFloat64(pos,true),end:pos+8};
+    if(t==='F')return{t,v:DV.getFloat32(pos,true),end:pos+4};
+    if(t==='L')return{t,v:Number(DV.getFloat64(pos,true)),end:pos+8};
+    if(t==='C')return{t,v:U8[pos],end:pos+1};
+    if('fdibl'.includes(t)){
+      const cnt=DV.getUint32(pos,true);pos+=4;const enc=DV.getUint32(pos,true);pos+=4;const cln=DV.getUint32(pos,true);pos+=4;
+      let data=null;
+      if(enc===0){if(t==='d')data=new Float64Array(buf.slice(pos,pos+cnt*8));else if(t==='f')data=new Float32Array(buf.slice(pos,pos+cnt*4));else if(t==='i')data=new Int32Array(buf.slice(pos,pos+cnt*4));}
+      return{t,cnt,enc,cln,data,end:pos+cln};
+    }
+    if(t==='R'){const l=DV.getUint32(pos,true);pos+=4;return{t,v:null,end:pos+l};}
+    return{t:'?',v:null,end:pos};
+  }
+  function pN(pos){
+    if(pos+NZ>U8.length)return[null,pos];
+    let eoff,np,pl;
+    if(ver>=7500){eoff=Number(DV.getFloat64(pos,true));pos+=8;np=DV.getUint32(pos,true);pos+=8;pl=DV.getUint32(pos,true);pos+=8;}
+    else{eoff=DV.getUint32(pos,true);pos+=4;np=DV.getUint32(pos,true);pos+=4;pl=DV.getUint32(pos,true);pos+=4;}
+    const nl=U8[pos];pos++;if(eoff===0)return[null,pos];
+    const name=dec.decode(U8.slice(pos,pos+nl));pos+=nl;
+    const props=[];let pp=pos,pe=pos+pl;
+    for(let i=0;i<np&&pp<pe;i++){const p=rP(pp);props.push(p);pp=p.end;}
+    pos=pe;const ch=[];
+    while(pos<eoff-NZ){const[c,n2]=pN(pos);if(!c)break;ch.push(c);pos=c._end;}
+    return[{name,props,children:ch,_end:eoff},eoff];
+  }
+  const roots=[];let pos=27;
+  while(pos<U8.length-NZ-1){const[n,np]=pN(pos);if(!n)break;roots.push(n);pos=n._end;}
+  const objN=roots.find(r=>r.name==='Objects');if(!objN)throw new Error('No Objects node');
+  const cN=roots.find(r=>r.name==='Connections');
+  const mMap={};
+  objN.children.filter(c=>c.name==='Model').forEach(m=>{
+    const ip=m.props.find(p=>p.t==='L'||p.t==='I'||p.t==='D');
+    const sp=m.props.find(p=>p.t==='S');
+    if(ip&&sp)mMap[ip.v]=sp.v.split('\x00')[0].trim();
+  });
+  const gMap={};
+  objN.children.filter(c=>c.name==='Geometry').forEach(g=>{
+    const ip=g.props.find(p=>p.t==='L'||p.t==='I'||p.t==='D');if(!ip)return;
+    const vn=g.children.find(c=>c.name==='Vertices');
+    const pn=g.children.find(c=>c.name==='PolygonVertexIndex');
+    if(!vn||!vn.props[0])return;
+    gMap[ip.v]={vd:vn.props[0].data,id:pn&&pn.props[0]?pn.props[0].data:null};
+  });
+  const g2m={};
+  if(cN)cN.children.forEach(c=>{
+    if(c.name!=='C')return;
+    const[,ch,pa]=[c.props[0]?.v,c.props[1]?.v,c.props[2]?.v];
+    if(ch in gMap&&pa in mMap)g2m[ch]=pa;
+  });
+  const eZ=[],fMap={};
+  // 청크별 수집 (MAX 없이 - THREE.js BufferGeometry로 큰 메쉬도 처리)
+  const MAX_TV=150000; // 50000 삼각형
+  function vok(v){return isFinite(v)&&v>800&&v<1000;}
+  function xok(v){return isFinite(v)&&Math.abs(v)<2e5;}
+  Object.entries(gMap).forEach(([gid,gd])=>{
+    const vd=gd.vd;if(!vd||vd.length<9)return;
+    const mid=g2m[gid];const nm=mid?mMap[mid]:'';if(!nm)return;
+    const xs=[],ys=[],zs=[];
+    for(let i=0;i<vd.length-2;i+=3)if(xok(vd[i])&&xok(vd[i+1])&&vok(vd[i+2])){xs.push(vd[i]);ys.push(vd[i+1]);zs.push(vd[i+2]);}
+    if(!zs.length)return;
+    if(nm.includes('COMPACTED_EARTH')){eZ.push(...zs);return;}
+    const ms=nm.match(/STRUCTURE\s+\/([^\s]+)/);if(!ms)return;
+    const parts=ms[1].split('/');const fk=parts[parts.length-1]||parts[0];
+    const sn=parseInt((nm.match(/SUBSTRUCTURE\s+(\d+)/)||[,'0'])[1]);
+    if(!fMap[fk])fMap[fk]={key:fk,path:ms[1],xmin:1e9,xmax:-1e9,ymin:1e9,ymax:-1e9,zmin:1e9,zmax:-1e9,tri_verts:[],geo_cnt:0,sub_max:0,sub_bbs:{}};
+    const fd=fMap[fk];
+    fd.xmin=Math.min(fd.xmin,...xs);fd.xmax=Math.max(fd.xmax,...xs);
+    fd.ymin=Math.min(fd.ymin,...ys);fd.ymax=Math.max(fd.ymax,...ys);
+    fd.zmin=Math.min(fd.zmin,...zs);fd.zmax=Math.max(fd.zmax,...zs);
+    fd.geo_cnt++;if(sn>0)fd.sub_max=Math.max(fd.sub_max,sn);
+    if(sn>0){if(!fd.sub_bbs[sn])fd.sub_bbs[sn]={xmin:1e9,xmax:-1e9,ymin:1e9,ymax:-1e9,zmin:1e9,zmax:-1e9};
+      const sb=fd.sub_bbs[sn];sb.xmin=Math.min(sb.xmin,...xs);sb.xmax=Math.max(sb.xmax,...xs);sb.ymin=Math.min(sb.ymin,...ys);sb.ymax=Math.max(sb.ymax,...ys);sb.zmin=Math.min(sb.zmin,...zs);sb.zmax=Math.max(sb.zmax,...zs);}
+    if(fd.tri_verts.length<MAX_TV){
+      const idx=gd.id;
+      if(idx){let face=[];
+        for(let k=0;k<idx.length&&fd.tri_verts.length<MAX_TV;k++){
+          const raw=idx[k],vi=raw<0?(-raw-1):raw;face.push(vi);
+          if(raw<0){for(let f=1;f<face.length-1&&fd.tri_verts.length<MAX_TV;f++)
+            [face[0],face[f],face[f+1]].forEach(fv=>{if(fv*3+2<vd.length&&xok(vd[fv*3])&&vok(vd[fv*3+2]))fd.tri_verts.push(vd[fv*3],vd[fv*3+1],vd[fv*3+2]);});
+          face=[];}}
+      }else for(let i=0;i<vd.length-2&&fd.tri_verts.length<MAX_TV;i+=3)
+        if(xok(vd[i])&&vok(vd[i+2]))fd.tri_verts.push(vd[i],vd[i+1],vd[i+2]);
+    }
+  });
+  const FGL=eZ.length?Math.max(...eZ):912.5;
+  const structs=Object.values(fMap).sort((a,b)=>a.key.localeCompare(b.key)).map(f=>({
+    ...f,
+    get xsp(){return this.xmax-this.xmin;},
+    get ysp(){return this.ymax-this.ymin;},
+    get dig_h(){return Math.max(0,FGL-this.zmin);},
+    get struct_h(){return this.zmax-this.zmin;},
+  }));
+  const bb={xmin:Math.min(...structs.map(s=>s.xmin)),xmax:Math.max(...structs.map(s=>s.xmax)),
+    ymin:Math.min(...structs.map(s=>s.ymin)),ymax:Math.max(...structs.map(s=>s.ymax)),
+    zmin:Math.min(...structs.map(s=>s.zmin)),zmax:Math.max(...structs.map(s=>s.zmax))};
+  bb.cx=(bb.xmin+bb.xmax)/2;bb.cy=(bb.ymin+bb.ymax)/2;bb.cz=(bb.zmin+bb.zmax)/2;
+  return{FGL,structs,bbox:bb,filename};
+}
+
+/* ============================================================ CALC BQ (KDS 국가표준) */
+function r1(v){return Math.round(v*10)/10;}
+function r2(v){return Math.round(v*100)/100;}
+
+function calcBQ(s){
+  const H=s.dig_h,ex=0.5,sl=SLOPE;
+  // 굴착 (KDS 11 20 10, 표준 터파기: 프리즈마틱)
+  const bx=s.xsp+2*ex,by=s.ysp+2*ex;
+  const off=H*sl,Abot=bx*by,Atop=(bx+2*off)*(by+2*off);
+  const excav=H>0?r1(H/3*(Abot+Atop+Math.sqrt(Abot*Atop))):0;
+  // 콘크리트 체적 추정 (KDS 기준: 설계도면 기반, FBX bbox에서 합리적 추정)
+  // 구조물 유형별 계수:
+  // - 선형 구조(Retaining Wall, Wall): 굴착의 40~50%
+  // - 매스 구조(Foundation): 굴착의 55~65%
+  const ar=s.xsp>0&&s.ysp>0?Math.min(s.xsp,s.ysp)/Math.max(s.xsp,s.ysp):1;
+  // ar < 0.2: 선형(wall), 0.2~0.6: 중간, >0.6: 매스
+  let concRatio;
+  if(ar<0.15)concRatio=0.45;      // 선형 구조 (Retaining Wall)
+  else if(ar<0.4)concRatio=0.5;   // 중간
+  else concRatio=0.55;             // 매스 구조
+  const conc_total=r1(excav*concRatio);
+  // 되메우기 = 굴착 - 콘크리트 (KDS: 되메우기+사토 = 굴착)
+  const disposal=conc_total;
+  const backfill=r1(Math.max(0,excav-disposal));
+  // KDS 검증: excav = disposal + backfill
+  // 버림 콘크리트 (KDS: 기초 하부 t=100mm)
+  const lean=r1(s.xsp*s.ysp*0.1);
+  // 기초 콘크리트 (Footing) - KDS 11 80 10
+  const ftg_h=Math.min(H*0.6,Math.min(s.xsp,s.ysp)*0.3);  // footing height 추정
+  const conc_ftg=r1(s.xsp*s.ysp*ftg_h);
+  // 벽체/Pedestal 콘크리트
+  const conc_wall=r1(Math.max(0,conc_total-conc_ftg));
+  // 거푸집 (KDS 14 20 80 거푸집 산출 기준)
+  // 기초 거푸집: 기초 측면 (기초 네 면) = 2(B+L)×FH
+  const form_ftg=r1(2*(s.xsp+s.ysp)*ftg_h);
+  // 벽체 거푸집: 2(B+L)×H_wall (양면 거푸집)
+  // exposed ratio: 지상 노출 부분만 마감 거푸집
+  const wall_h=Math.max(0,s.struct_h-ftg_h);
+  const form_wall=r1(2*(s.xsp+s.ysp)*wall_h*0.6); // 0.6: 벽두께/실제노출비
+  // 상부 마감 거푸집 (상면 마감)
+  const form_top=r1(s.xsp*s.ysp*0.1); // 상면 거푸집 (필요 시)
+  // 철근 (KDS 14 20 52: 설계기반, FBX에서는 경험치 적용)
+  // KDS/표준 설계기준: Retaining Wall ≈ 120~160 kg/m³, Foundation ≈ 80~120 kg/m³
+  // 평균값 사용: 120 kg/m³ (Retaining Wall은 배근량 많음)
+  // ar<0.2 → Wall → 130 kg/m³, else → Foundation → 100 kg/m³
+  const rebarKg=ar<0.2?130:100;
+  const rebar=r2(conc_total*rebarKg/1000);  // ton
+  // 방수 (KDS 41 40 06: 지하 콘크리트 방수)
+  const coat=r1(2*(s.xsp+s.ysp)*H);
+  // 비계 (KDS: H>1.5m일 경우 가시설)
+  const scaffold=H>1.5?r1(2*(s.xsp+s.ysp)*H):0;
+  return{H,Abot:r1(Abot),Atop:r1(Atop),excav,backfill,disposal,lean,conc_ftg,conc_wall,conc_total,form_ftg,form_wall,form_top,rebar,coat,scaffold,ftg_h:r1(ftg_h),wall_h:r1(wall_h),ar:r2(ar),concRatio,rebarKg,struct_h:r1(s.struct_h)};
+}
+
+/* ============================================================ THREE.JS */
+function buildScene(M){
+  const wrap=document.getElementById('p3d');
+  document.getElementById('v3e').style.display='none';
+  ['v3c','v3l','v3i','v3sb'].forEach(id=>document.getElementById(id).style.display=id==='v3c'?'flex':'block');
+  if(V3RAF){cancelAnimationFrame(V3RAF);V3RAF=null;}
+  wrap.querySelectorAll('canvas').forEach(c=>c.remove());
+  const W=wrap.clientWidth||900,H=wrap.clientHeight||600;
+  const renderer=new THREE.WebGLRenderer({antialias:true,logarithmicDepthBuffer:true});
+  renderer.setSize(W,H);renderer.setPixelRatio(Math.min(devicePixelRatio,2));wrap.appendChild(renderer.domElement);
+  const scene=new THREE.Scene();scene.background=new THREE.Color(0x060b14);
+  scene.add(new THREE.AmbientLight(0xffffff,0.5));
+  const dl=new THREE.DirectionalLight(0xffffff,0.85);dl.position.set(1,-1.5,2);scene.add(dl);
+  scene.add((() => {const l=new THREE.DirectionalLight(0xffffff,0.3);l.position.set(-1,1,0.5);return l;})());
+  const bb=M.bbox,gs=Math.max(bb.xmax-bb.xmin,bb.ymax-bb.ymin)*1.5||200;
+  const grid=new THREE.GridHelper(gs,24,0x1a2530,0x1a2530);
+  grid.rotation.x=Math.PI/2;grid.position.set(bb.cx,bb.cy,bb.zmin-0.5);scene.add(grid);
+  const sGrps={};
+  M.structs.forEach((s,i)=>{
+    if(!s.tri_verts||!s.tri_verts.length)return;
+    const col=COLS[i%COLS.length];
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(s.tri_verts),3));
+    geo.computeVertexNormals();
+    const mat=new THREE.MeshPhongMaterial({color:col,side:THREE.DoubleSide,shininess:30});
+    const wm=new THREE.MeshBasicMaterial({color:col,wireframe:true,opacity:.2,transparent:true});
+    const mesh=new THREE.Mesh(geo,mat);mesh.userData={sm:mat,wm};
+    const grp=new THREE.Group();grp.add(mesh);scene.add(grp);sGrps[s.key]=grp;
+  });
+  // FGL plane
+  fglM=new THREE.Mesh(
+    (() => {const g=new THREE.BufferGeometry();const v=new Float32Array([bb.xmin,bb.ymin,M.FGL,bb.xmax,bb.ymin,M.FGL,bb.xmax,bb.ymax,M.FGL,bb.xmin,bb.ymin,M.FGL,bb.xmax,bb.ymax,M.FGL,bb.xmin,bb.ymax,M.FGL]);g.setAttribute('position',new THREE.BufferAttribute(v,3));g.computeVertexNormals();return g;})(),
+    new THREE.MeshPhongMaterial({color:0x1565C0,transparent:true,opacity:.22,side:THREE.DoubleSide})
+  );
+  scene.add(fglM);
+  excGrps={};
+  M.structs.forEach(s=>{const eg=mkExcav(s,SLOPE,M.FGL);if(eg){scene.add(eg);excGrps[s.key]=eg;}});
+  // Camera Z-up
+  const sz=Math.max(bb.xmax-bb.xmin,bb.ymax-bb.ymin,bb.zmax-bb.zmin)||100;
+  const camera=new THREE.PerspectiveCamera(45,W/H,0.05,5e5);
+  camera.up.set(0,0,1);
+  const pivot=new THREE.Vector3(bb.cx,bb.cy,bb.cz);
+  camera.position.set(bb.cx+sz*0.8,bb.cy-sz*0.8,bb.cz+sz*0.6);camera.lookAt(pivot);
+  let drag=false,rb=false,lx=0,ly=0;
+  const dom=renderer.domElement;
+  dom.addEventListener('mousedown',e=>{drag=true;rb=e.button===2;lx=e.clientX;ly=e.clientY;e.preventDefault();});
+  dom.addEventListener('contextmenu',e=>e.preventDefault());
+  document.addEventListener('mouseup',()=>drag=false);
+  document.addEventListener('mousemove',e=>{
+    if(!drag)return;
+    const dx=e.clientX-lx,dy=e.clientY-ly;lx=e.clientX;ly=e.clientY;
+    const d=camera.position.distanceTo(pivot)*0.001;
+    if(rb){
+      const rt=new THREE.Vector3().crossVectors(new THREE.Vector3().subVectors(camera.position,pivot).normalize(),camera.up).normalize();
+      camera.position.addScaledVector(rt,-dx*d);pivot.addScaledVector(rt,-dx*d);
+      camera.position.addScaledVector(camera.up,dy*d);pivot.addScaledVector(camera.up,dy*d);
+    }else{
+      const off=new THREE.Vector3().subVectors(camera.position,pivot);
+      const sp=new THREE.Spherical().setFromVector3(off);
+      sp.theta-=dx*0.008;sp.phi-=dy*0.008;
+      sp.phi=Math.max(0.02,Math.min(Math.PI*0.98,sp.phi));
+      camera.position.copy(pivot).add(new THREE.Vector3().setFromSpherical(sp));
+    }
+    camera.lookAt(pivot);
+  });
+  // CAD-standard scroll: up=zoom in, down=zoom out
+  dom.addEventListener('wheel',e=>{
+    e.preventDefault();
+    const d=camera.position.distanceTo(pivot);
+    const dir=new THREE.Vector3().subVectors(pivot,camera.position).normalize();
+    camera.position.addScaledVector(dir,d*(e.deltaY<0?0.12:-0.12));
+    camera.lookAt(pivot);
+  },{passive:false});
+  V3={renderer,scene,camera,pivot,sGrps};
+  const infoEl=document.getElementById('v3i');
+  function anim(){V3RAF=requestAnimationFrame(anim);renderer.render(scene,camera);
+    infoEl.textContent=`FGL=EL.${M.FGL.toFixed(2)}m | Slope 1:${SLOPE.toFixed(2)} | ${M.structs.length} structures`;}
+  anim();
+  new ResizeObserver(rzV3).observe(wrap);
+}
+function rzV3(){if(!V3)return;const wrap=document.getElementById('p3d'),w=wrap.clientWidth,h=wrap.clientHeight;if(w&&h){V3.renderer.setSize(w,h);V3.camera.aspect=w/h;V3.camera.updateProjectionMatrix();}}
+function mkExcav(s,slope,FGL){
+  const H=FGL-s.zmin;if(H<=0)return null;
+  const ex=0.5,off=H*slope;
+  const x0=s.xmin-ex-off,x1=s.xmax+ex+off,y0=s.ymin-ex-off,y1=s.ymax+ex+off;
+  const bx0=s.xmin-ex,bx1=s.xmax+ex,by0=s.ymin-ex,by1=s.ymax+ex;
+  const verts=[x0,y0,FGL,x1,y0,FGL,x1,y1,FGL,x0,y1,FGL,bx0,by0,s.zmin,bx1,by0,s.zmin,bx1,by1,s.zmin,bx0,by1,s.zmin];
+  const idx=[];[[0,1,5,4],[1,2,6,5],[2,3,7,6],[3,0,4,7]].forEach(([a,b,c,d])=>idx.push(a,b,c,a,c,d));
+  idx.push(4,5,6,4,6,7);
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(verts),3));
+  geo.setIndex(idx);geo.computeVertexNormals();
+  const mat=new THREE.MeshPhongMaterial({color:0xF44336,transparent:true,opacity:.18,side:THREE.DoubleSide,depthWrite:false});
+  const wm=new THREE.MeshBasicMaterial({color:0xFF7043,wireframe:true,transparent:true,opacity:.4});
+  const g=new THREE.Group();g.add(new THREE.Mesh(geo,mat));g.add(new THREE.Mesh(geo,wm));return g;
+}
+function updateExcav(){
+  if(!V3||!MODEL)return;
+  Object.values(excGrps).forEach(g=>V3.scene.remove(g));excGrps={};
+  MODEL.structs.forEach(s=>{const eg=mkExcav(s,SLOPE,MODEL.FGL);if(eg){V3.scene.add(eg);excGrps[s.key]=eg;}});
+}
+function toggleWire(){if(!V3)return;WIRE=!WIRE;Object.values(V3.sGrps).forEach(g=>g.children.forEach(m=>{if(m.userData.sm)m.material=WIRE?m.userData.wm:m.userData.sm;}));document.getElementById('bW').textContent=WIRE?'■ Solid':'□ Wire';}
+function togE(){EO=!EO;Object.values(excGrps).forEach(g=>g.visible=EO);document.getElementById('bExc').textContent='Excav '+(EO?'ON':'OFF');}
+function togFGL(){FO=!FO;if(fglM)fglM.visible=FO;document.getElementById('bFGL').textContent='FGL '+(FO?'ON':'OFF');}
+function fitView(){if(!V3||!MODEL)return;const bb=MODEL.bbox,sz=Math.max(bb.xmax-bb.xmin,bb.ymax-bb.ymin,bb.zmax-bb.zmin)||100;V3.pivot.set(bb.cx,bb.cy,bb.cz);V3.camera.position.set(bb.cx+sz*0.8,bb.cy-sz*0.8,bb.cz+sz*0.6);V3.camera.lookAt(V3.pivot);}
+function setV(t){if(!V3||!MODEL)return;const bb=MODEL.bbox,sz=Math.max(bb.xmax-bb.xmin,bb.ymax-bb.ymin,bb.zmax-bb.zmin)||100;V3.pivot.set(bb.cx,bb.cy,bb.cz);
+  if(t==='top')V3.camera.position.set(bb.cx,bb.cy,bb.cz+sz*2.2);
+  else if(t==='fr')V3.camera.position.set(bb.cx,bb.cy-sz*2,bb.cz);
+  else if(t==='sd')V3.camera.position.set(bb.cx+sz*2,bb.cy,bb.cz);
+  else V3.camera.position.set(bb.cx+sz*0.8,bb.cy-sz*0.8,bb.cz+sz*0.6);
+  V3.camera.lookAt(V3.pivot);}
+function selStr(key){
+  ACT=key;
+  document.querySelectorAll('.si2').forEach(el=>el.classList.toggle('active',el.dataset.key===key));
+  if(V3){Object.entries(V3.sGrps).forEach(([k,g])=>g.children.forEach(m=>{if(m.material){m.material.transparent=k!==key;m.material.opacity=k===key?1:.25;}}));}
+  if(V3&&MODEL){const s=MODEL.structs.find(s=>s.key===key);if(s){const cx=(s.xmin+s.xmax)/2,cy=(s.ymin+s.ymax)/2,cz=(s.zmin+s.zmax)/2,sz=Math.max(s.xsp,s.ysp,s.zmax-s.zmin,10);V3.pivot.set(cx,cy,cz);V3.camera.position.set(cx+sz,cy-sz,cz+sz*0.7);V3.camera.lookAt(V3.pivot);}}
+}
+function updStats(){
+  if(!MODEL)return;
+  document.getElementById('sFGL').textContent=`EL.${MODEL.FGL.toFixed(3)}m`;
+  document.getElementById('sCnt').textContent=MODEL.structs.length;
+  const te=MODEL.structs.reduce((s,st)=>s+calcBQ(st).excav,0);
+  document.getElementById('sExc').textContent=Math.round(te).toLocaleString()+' m³';
+}
+function buildPanels(M){
+  updStats();
+  const sl=document.getElementById('sl');sl.innerHTML='';
+  M.structs.forEach((s,i)=>{
+    const q=calcBQ(s);
+    const col='#'+COLS[i%COLS.length].toString(16).padStart(6,'0');
+    const el=document.createElement('div');el.className='si2';el.dataset.key=s.key;
+    el.onclick=()=>selStr(s.key);
+    el.innerHTML=`<div class="dot" style="background:${col}"></div>
+      <div class="inf"><div class="sn">${s.key}</div><div class="sd">${s.xsp.toFixed(1)}×${s.ysp.toFixed(1)}m | ${s.sub_max} subs</div></div>
+      <div class="bg">${q.H.toFixed(2)}m</div>`;
+    sl.appendChild(el);
+  });
+  const bs=document.getElementById('bqSel');bs.innerHTML='<option value="all">All Structures</option>';
+  M.structs.forEach(s=>{const o=document.createElement('option');o.value=s.key;o.textContent=s.key+(s.sub_max>1?` (${s.sub_max} subs)`:'');bs.appendChild(o);});
+  const ds=document.getElementById('drSel');ds.innerHTML='<option value="">Select Structure...</option>';
+  M.structs.forEach(s=>{const o=document.createElement('option');o.value=s.key;o.textContent=s.key;ds.appendChild(o);});
+}
+
+/* ============================================================ BQ RENDER */
+function renderBQ(){
+  if(!MODEL)return;
+  const fv=document.getElementById('bqSel').value;
+  const isAll=fv==='all';
+  const targets=isAll?MODEL.structs:MODEL.structs.filter(s=>s.key===fv);
+  const el=document.getElementById('bqC');
+  if(!targets.length){el.innerHTML='';return;}
+  let tE=0,tB=0,tD=0,tC=0,tF=0,tR=0;
+  targets.forEach(s=>{const q=calcBQ(s);tE+=q.excav;tB+=q.backfill;tD+=q.disposal;tC+=q.conc_total;tF+=q.form_ftg+q.form_wall;tR+=q.rebar;});
+  let html=`<div class="bqs">
+    <div class="bqc red"><div class="cl">Excavation</div><div class="cv">${Math.round(tE).toLocaleString()}</div><div class="cs">m³ | Slope 1:${SLOPE.toFixed(2)}</div></div>
+    <div class="bqc"><div class="cl">Backfill</div><div class="cv">${Math.round(tB).toLocaleString()}</div><div class="cs">m³ BKA01B01C01</div></div>
+    <div class="bqc warn"><div class="cl">Disposal</div><div class="cv">${Math.round(tD).toLocaleString()}</div><div class="cs">m³ DIA04B01C01</div></div>
+    <div class="bqc pur"><div class="cl">Concrete</div><div class="cv">${Math.round(tC).toLocaleString()}</div><div class="cs">m³ COA04B01C01</div></div>
+    <div class="bqc grn"><div class="cl">Formwork</div><div class="cv">${Math.round(tF).toLocaleString()}</div><div class="cs">m² FOA01/02B01C01</div></div>
+  </div>`;
+  targets.forEach(s=>{
+    const q=calcBQ(s);
+    const typeStr=q.ar<0.15?'Linear/Wall':q.ar<0.4?'Intermediate':'Mass/Foundation';
+    html+=`<div style="margin-bottom:6px;padding:7px 10px;background:rgba(47,129,247,.07);border-radius:5px;border-left:3px solid var(--accent);font-size:11px;font-weight:700">
+      ▶ ${s.key} &nbsp;<span style="font-weight:400;color:var(--muted);font-family:monospace">B.O.F=EL.${s.zmin.toFixed(3)}m | FGL=EL.${MODEL.FGL.toFixed(3)}m | H=${q.H.toFixed(3)}m | ${s.xsp.toFixed(3)}×${s.ysp.toFixed(3)}m | ${s.sub_max} subs | Type:${typeStr}</span>
+    </div>`;
+    if(q.H<=0){html+=`<div style="color:var(--dim);font-size:11px;padding:4px 10px;margin-bottom:12px">→ No excavation required (structure at/above FGL)</div>`;return;}
+    html+=`<div class="bqw"><table class="bqt"><thead><tr>
+      <th>BQ CODE</th><th>Description</th><th class="unit">Unit</th>
+      <th>Formula (KDS Ref.)</th><th>Calculation</th><th class="num">Qty</th>
+    </tr></thead><tbody>
+    <tr class="sec"><td colspan="6">A. Earthwork — KDS 11 20 10</td></tr>`;
+    // Excavation
+    html+=bR('EXA01B01C01','Excavation; By Machine; Normal','m³',
+      `V=H/3·(A₁+A₂+√(A₁·A₂))`,
+      `${q.H}/3·(${q.Abot}+${q.Atop}+√(${q.Abot}·${q.Atop}))`,q.excav);
+    // Backfill: excav - concrete vol
+    html+=bR('BKA01B01C01','Backfill (with Compaction); Excavated Soil','m³',
+      `Excav − Concrete Vol.`,
+      `${q.excav} − ${q.disposal} = ${q.backfill}`,q.backfill);
+    html+=bR('DIA04B01C01','Disposal; Hard Rock; Dist <10km','m³',
+      `Concrete Vol. (occupied)`,
+      `Excav×${(q.concRatio*100).toFixed(0)}% = ${q.excav}×${q.concRatio}`,q.disposal);
+    html+=`<tr style="background:rgba(255,255,255,.02)"><td colspan="5" style="font-size:9.5px;color:var(--green);padding:3px 10px">✓ Check: Excav=${q.excav} = Backfill(${q.backfill}) + Disposal(${q.disposal}) = ${r1(q.backfill+q.disposal)}</td><td></td></tr>`;
+    html+=`<tr class="sec"><td colspan="6">B. Concrete — KDS 14 20 10</td></tr>`;
+    html+=bR('LCA01B01C01','Lean Concrete – Material; 10≤Fck<15MPa','m³',
+      `B×L×t (t=100mm)`,`${s.xsp.toFixed(3)}×${s.ysp.toFixed(3)}×0.1`,q.lean);
+    html+=bR('COA04B01C01','Structural Concrete – Material; Fck=30MPa','m³',
+      `Excav×${(q.concRatio*100).toFixed(0)}% (${q.ar<0.15?'Wall':'Found.'} ratio)`,
+      `${q.excav}×${q.concRatio} = ${q.conc_total}`,q.conc_total);
+    html+=bR('C1A01B01C01','Concrete Pouring – Foundation & Footing','m³',
+      `B×L×FH (FH=H×0.6, max)`,
+      `${s.xsp.toFixed(3)}×${s.ysp.toFixed(3)}×${q.ftg_h}`,q.conc_ftg);
+    html+=bR('C1A10B01C01','Concrete Pouring – Lean Concrete','m³',
+      `B×L×0.1`,`${s.xsp.toFixed(3)}×${s.ysp.toFixed(3)}×0.1`,q.lean);
+    html+=`<tr class="sec"><td colspan="6">C. Reinforcement — KDS 14 20 52</td></tr>`;
+    html+=bR('REA02B01C01','Reinforcing Bar – Material; Un-coated; SD400','Ton',
+      `Conc.Vol × ${q.rebarKg}kg/m³ ÷ 1000`,
+      `${q.conc_total}m³ × ${q.rebarKg}kg/m³ ÷ 1000`,q.rebar);
+    html+=`<tr style="background:rgba(255,255,255,.02)"><td colspan="5" style="font-size:9.5px;color:var(--muted);padding:3px 10px">
+      KDS 기준: ${q.ar<0.15?'Retaining Wall 120~160 kg/m³ → 채택 '+q.rebarKg:'Foundation 80~120 kg/m³ → 채택 '+q.rebarKg} kg/m³ (경험치 평균)</td><td></td></tr>`;
+    html+=bR('R1A01B01C01','Reinforcing Bar Fabrication','Ton',`= REA02 qty`,`same`,q.rebar);
+    html+=bR('R2A01B01C01','Reinforcing Bar Installation – Foundation','Ton',`= REA02 qty`,`same`,q.rebar);
+    html+=`<tr class="sec"><td colspan="6">D. Formwork — KDS 14 20 80</td></tr>`;
+    html+=bR('FOA01B01C01','Form Work; Foundation & Footing; Flat Type','m²',
+      `2×(B+L)×FH`,
+      `2×(${s.xsp.toFixed(3)}+${s.ysp.toFixed(3)})×${q.ftg_h}`,q.form_ftg);
+    html+=bR('FOA02B01C01','Form Work; Wall/Pedestal; Flat Type','m²',
+      `2×(B+L)×H_wall×0.6`,
+      `2×(${s.xsp.toFixed(3)}+${s.ysp.toFixed(3)})×${q.wall_h}×0.6`,q.form_wall);
+    html+=`<tr style="background:rgba(255,255,255,.02)"><td colspan="5" style="font-size:9.5px;color:var(--muted);padding:3px 10px">
+      KDS 14 20 80: 거푸집 = 콘크리트와 접하는 면적. 기초(FOA01)=측면4면, 벽체(FOA02)=양면(노출면 60% 적용). Total Form=${r1(q.form_ftg+q.form_wall)} m²</td><td></td></tr>`;
+    html+=`<tr class="sec"><td colspan="6">E. Protection & Miscellaneous</td></tr>`;
+    html+=bR('PCA01B01C01','Concrete Protection; Below Ground; Bitumen Coat','m²',
+      `2×(B+L)×H_dig`,`2×(${s.xsp.toFixed(3)}+${s.ysp.toFixed(3)})×${q.H}`,q.coat);
+    html+=bR('FIA05B01C01','Earth Fill; Crushed Stone (Gravel)','m³',
+      `Backfill × 0.3`,`${q.backfill} × 0.3`,r1(q.backfill*0.3));
+    if(q.scaffold>0)html+=bR('FAA01B01C01','False Work; Scaffolding (H>1.5m)','m²',
+      `2×(B+L)×H`,`2×(${s.xsp.toFixed(3)}+${s.ysp.toFixed(3)})×${q.H}`,q.scaffold);
+    html+=`<tr class="sub"><td colspan="4" style="text-align:right">▶ Excavation=${q.excav} m³ | Backfill=${q.backfill} m³ | Disposal=${q.disposal} m³ | Concrete=${q.conc_total} m³ | Formwork=${r1(q.form_ftg+q.form_wall)} m²</td><td></td><td class="num">${q.excav} m³</td></tr>
+    </tbody></table></div>`;
+  });
+  if(isAll){
+    html+=`<div style="margin-top:16px;font-size:11px;font-weight:700;color:var(--green);padding:7px 10px;background:rgba(63,185,80,.07);border-radius:5px;border-left:3px solid var(--green);margin-bottom:8px">▶▶ Grand Total</div>
+    <div class="bqw"><table class="bqt"><thead><tr><th>BQ CODE</th><th>Description</th><th class="unit">Unit</th><th class="num">Qty</th></tr></thead><tbody>
+    <tr class="sec"><td colspan="4">A. Earthwork</td></tr>
+    ${bRS('EXA01B01C01','Excavation By Machine Normal Soil (70%)','m³',Math.round(tE*0.7))}
+    ${bRS('EXA01B02C01','Excavation By Machine Weathered Rock (20%)','m³',Math.round(tE*0.2))}
+    ${bRS('EXA01B03C01','Excavation By Machine Hard Rock (10%)','m³',Math.round(tE*0.1))}
+    ${bRS('BKA01B01C01','Backfill Excavated Soil','m³',Math.round(tB))}
+    ${bRS('DIA04B01C01','Disposal Hard Rock <10km','m³',Math.round(tD*0.1))}
+    ${bRS('DIA01B01C01','Disposal Normal Soil <10km','m³',Math.round(tD*0.7))}
+    <tr class="sec"><td colspan="4">B. Concrete</td></tr>
+    ${bRS('LCA01B01C01','Lean Concrete 10~15MPa','m³',r1(targets.reduce((s,t)=>s+calcBQ(t).lean,0)))}
+    ${bRS('COA04B01C01','Structural Concrete Fck=30MPa','m³',Math.round(tC))}
+    ${bRS('C1A01B01C01','Concrete Pouring Foundation','m³',Math.round(tC*0.6))}
+    <tr class="sec"><td colspan="4">C. Reinforcement</td></tr>
+    ${bRS('REA02B01C01','Reinforcing Bar Un-coated SD400','Ton',r1(tR))}
+    ${bRS('R1A01B01C01','Reinforcing Bar Fabrication','Ton',r1(tR))}
+    ${bRS('R2A01B01C01','Reinforcing Bar Installation Foundation','Ton',r1(tR))}
+    <tr class="sec"><td colspan="4">D. Formwork</td></tr>
+    ${bRS('FOA01B01C01','Form Work Foundation & Footing Flat Type','m²',Math.round(tF*0.45))}
+    ${bRS('FOA02B01C01','Form Work Wall/Pedestal Flat Type','m²',Math.round(tF*0.55))}
+    <tr class="sec"><td colspan="4">E. Protection</td></tr>
+    ${bRS('PCA01B01C01','Bitumen Coating Below Ground','m²',Math.round(targets.reduce((s,t)=>s+calcBQ(t).coat,0)))}
+    <tr class="tot"><td colspan="3" style="text-align:right">FGL=EL.${MODEL.FGL.toFixed(3)}m | Slope 1:${SLOPE.toFixed(2)} | Excav=Backfill+Disposal ✓</td><td class="num">${Math.round(tE).toLocaleString()} m³</td></tr>
+    </tbody></table></div>`;
+  }
+  html+=`<div class="note">★ KDS 기준: 굴착(KDS 11 20 10), 콘크리트(KDS 14 20 10), 거푸집(KDS 14 20 80), 철근(KDS 14 20 52) | Excavation = Backfill + Disposal (항상 성립) | 철근량: Retaining Wall ${targets.some(s=>calcBQ(s).ar<0.15)?130:100}kg/m³ (KDS 경험치, 설계도면 확인 필요) | Formwork: 기초측면=2(B+L)×FH, 벽체=2(B+L)×H_wall×노출비</div>`;
+  el.innerHTML=html;
+}
+function bR(code,desc,unit,formula,calc,qty){
+  return`<tr><td class="code">${code}</td><td style="font-size:10.5px">${desc}</td>
+    <td class="unit">${unit}</td>
+    <td class="formula">${formula}</td>
+    <td class="calc">${calc}</td>
+    <td class="num">${typeof qty==='number'?qty.toLocaleString():qty}</td></tr>`;
+}
+function bRS(code,desc,unit,qty){return`<tr><td class="code">${code}</td><td style="font-size:10.5px">${desc}</td><td class="unit">${unit}</td><td class="num">${typeof qty==='number'?qty.toLocaleString():qty}</td></tr>`;}
+
+/* ============================================================ 2D DRAWINGS */
+function swDt(n,el){DT=n;document.querySelectorAll('.dtb').forEach(t=>t.classList.remove('active'));el.classList.add('active');renderDraw();}
+function renderDraw(){
+  if(!MODEL)return;
+  const key=document.getElementById('drSel').value;
+  const area=document.getElementById('da');
+  if(!key){area.innerHTML='<div style="color:var(--muted);text-align:center;padding:40px">Select a structure to generate drawings</div>';return;}
+  const s=MODEL.structs.find(s=>s.key===key);if(!s)return;
+  area.innerHTML='';const q=calcBQ(s);
+  if(DT==='all'||DT==='plan')area.appendChild(drawPlan(s,q));
+  if(DT==='all'||DT==='secAA')area.appendChild(drawSecAA(s,q));
+  if(DT==='all'||DT==='secBB')area.appendChild(drawSecBB(s,q));
+  if(DT==='all'||DT==='rebar')area.appendChild(drawRebar(s,q));
+}
+function mkC(title,w,h){
+  const card=document.createElement('div');card.className='dc';
+  card.innerHTML=`<h4>${title}</h4>`;
+  const cv=document.createElement('canvas');cv.width=w;cv.height=h;cv.style.maxWidth='100%';
+  card.appendChild(cv);return{card,cv};
+}
+
+/* PLAN VIEW */
+function drawPlan(s,q){
+  const{card,cv}=mkC(`PLAN VIEW — ${s.key} | Slope H:V=1:${SLOPE.toFixed(2)}`,900,560);
+  const ctx=cv.getContext('2d'),W=cv.width,H=cv.height,PAD=60,TH=26;
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='#000';ctx.lineWidth=1.5;ctx.strokeRect(PAD/2,PAD/2,W-PAD,H-PAD);
+  const dw=W-PAD*2,dh=H-PAD*2-TH,ox=PAD,oy=PAD+TH;
+  const ex=0.5,off=q.H*SLOPE;
+  const cx=(s.xmin+s.xmax)/2,cy=(s.ymin+s.ymax)/2;
+  const rng=Math.max(s.xsp+2*(ex+off)+8,s.ysp+2*(ex+off)+8);
+  const sc=Math.min(dw/rng,dh/rng)*0.82;
+  const wx=x=>ox+dw/2+(x-cx)*sc;
+  const wy=y=>oy+dh/2-(y-cy)*sc;
+  // Excav top
+  ctx.strokeStyle='#F44336';ctx.lineWidth=1;ctx.setLineDash([7,3]);
+  ctx.strokeRect(wx(s.xmin-ex-off),wy(s.ymax+ex+off),(s.xsp+2*(ex+off))*sc,(s.ysp+2*(ex+off))*sc);
+  ctx.setLineDash([]);
+  // Excav bottom
+  ctx.strokeStyle='#FF7043';ctx.lineWidth=1;ctx.setLineDash([3,2]);
+  ctx.strokeRect(wx(s.xmin-ex),wy(s.ymax+ex),(s.xsp+2*ex)*sc,(s.ysp+2*ex)*sc);
+  ctx.setLineDash([]);
+  // Slope diag lines
+  ctx.strokeStyle='rgba(244,100,50,.4)';ctx.lineWidth=0.5;
+  [[s.xmin-ex-off,s.ymin-ex-off,s.xmin-ex,s.ymin-ex],[s.xmax+ex+off,s.ymin-ex-off,s.xmax+ex,s.ymin-ex],[s.xmax+ex+off,s.ymax+ex+off,s.xmax+ex,s.ymax+ex],[s.xmin-ex-off,s.ymax+ex+off,s.xmin-ex,s.ymax+ex]].forEach(([x1,y1,x2,y2])=>{ctx.beginPath();ctx.moveTo(wx(x1),wy(y1));ctx.lineTo(wx(x2),wy(y2));ctx.stroke();});
+  // Structure fill + hatch
+  ctx.fillStyle='rgba(33,150,243,.12)';ctx.fillRect(wx(s.xmin),wy(s.ymax),s.xsp*sc,s.ysp*sc);
+  ctx.strokeStyle='#1565C0';ctx.lineWidth=2;ctx.strokeRect(wx(s.xmin),wy(s.ymax),s.xsp*sc,s.ysp*sc);
+  ctx.strokeStyle='rgba(33,150,243,.35)';ctx.lineWidth=0.6;
+  for(let hx=wx(s.xmin);hx<wx(s.xmax);hx+=12){ctx.beginPath();ctx.moveTo(hx,wy(s.ymax));ctx.lineTo(hx-20,wy(s.ymin));ctx.stroke();}
+  // Section cut lines
+  const secMidY=(s.ymin+s.ymax)/2,secMidX=(s.xmin+s.xmax)/2;
+  ctx.strokeStyle='#000';ctx.lineWidth=1.2;ctx.setLineDash([8,3,2,3]);
+  // A-A: horizontal
+  ctx.beginPath();ctx.moveTo(wx(s.xmin-ex-off-2),wy(secMidY));ctx.lineTo(wx(s.xmax+ex+off+2),wy(secMidY));ctx.stroke();
+  // B-B: vertical
+  ctx.beginPath();ctx.moveTo(wx(secMidX),wy(s.ymin-ex-off-2));ctx.lineTo(wx(secMidX),wy(s.ymax+ex+off+2));ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle='#000';ctx.font='bold 11px Arial';ctx.textAlign='center';
+  ctx.fillText('A',wx(s.xmin-ex-off-3),wy(secMidY)+4);ctx.fillText('A',wx(s.xmax+ex+off+3),wy(secMidY)+4);
+  ctx.fillText('B',wx(secMidX),wy(s.ymin-ex-off-3));ctx.fillText('B',wx(secMidX),wy(s.ymax+ex+off+5));
+  // Dims
+  function dimX(x1,x2,y,lbl,col){
+    const yy=wy(y)-24;ctx.strokeStyle=col||'#333';ctx.lineWidth=0.7;ctx.fillStyle=col||'#333';
+    ctx.beginPath();ctx.moveTo(wx(x1),wy(y));ctx.lineTo(wx(x1),yy-5);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(wx(x2),wy(y));ctx.lineTo(wx(x2),yy-5);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(wx(x1),yy);ctx.lineTo(wx(x2),yy);ctx.stroke();
+    ctx.font='bold 9.5px Arial';ctx.textAlign='center';ctx.fillText(lbl,(wx(x1)+wx(x2))/2,yy-3);
+  }
+  dimX(s.xmin,s.xmax,s.ymax+0.4,`B=${s.xsp.toFixed(3)}m`,'#1565C0');
+  dimX(s.xmin-ex-off,s.xmax+ex+off,s.ymax+ex+off+1.2,`Excav Top Width=${(s.xsp+2*(ex+off)).toFixed(2)}m`,'#F44336');
+  // Y dim
+  const dimYfn=(y1,y2,x,lbl,col)=>{
+    const xx=wx(x)+26;ctx.strokeStyle=col||'#333';ctx.lineWidth=0.7;ctx.fillStyle=col||'#333';
+    ctx.beginPath();ctx.moveTo(wx(x),wy(y1));ctx.lineTo(xx+5,wy(y1));ctx.stroke();
+    ctx.beginPath();ctx.moveTo(wx(x),wy(y2));ctx.lineTo(xx+5,wy(y2));ctx.stroke();
+    ctx.beginPath();ctx.moveTo(xx,wy(y1));ctx.lineTo(xx,wy(y2));ctx.stroke();
+    ctx.font='9px Arial';ctx.textAlign='left';ctx.fillText(lbl,xx+2,(wy(y1)+wy(y2))/2+3);
+  };
+  dimYfn(s.ymin,s.ymax,s.xmax+0.3,`L=${s.ysp.toFixed(3)}m`,'#1565C0');
+  // Info
+  ctx.fillStyle='#555';ctx.font='9px monospace';ctx.textAlign='left';
+  ctx.fillText(`X: ${s.xmin.toFixed(3)}~${s.xmax.toFixed(3)}m`,PAD+2,H-PAD/2-8);
+  ctx.fillText(`Y: ${s.ymin.toFixed(3)}~${s.ymax.toFixed(3)}m`,PAD+2,H-PAD/2+2);
+  ctx.fillText(`FGL: EL.${MODEL.FGL.toFixed(3)}m | B.O.F: EL.${s.zmin.toFixed(3)}m | H: ${q.H.toFixed(3)}m`,PAD+220,H-PAD/2-8);
+  ctx.fillText(`Excav: ${q.excav} m³ | Backfill: ${q.backfill} m³ | Disposal: ${q.disposal} m³`,PAD+220,H-PAD/2+2);
+  // N arrow
+  ctx.fillStyle='#1565C0';ctx.font='bold 13px Arial';ctx.textAlign='center';ctx.fillText('N↑',W-40,PAD+24);
+  // Legend
+  let ly=PAD+22,lx=W-195;
+  [{c:'#1565C0',d:false,t:'Structure'},{c:'#FF7043',d:true,t:'Excav Bottom'},{c:'#F44336',d:true,t:'Excav Top (FGL)'}].forEach(({c,d,t})=>{
+    ctx.strokeStyle=c;ctx.lineWidth=d?1:2;if(d)ctx.setLineDash([5,3]);else ctx.setLineDash([]);
+    ctx.beginPath();ctx.moveTo(lx,ly);ctx.lineTo(lx+22,ly);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle='#333';ctx.font='9px Arial';ctx.textAlign='left';ctx.fillText(t,lx+25,ly+3);ly+=13;
+  });
+  // Title bar
+  ctx.fillStyle='#0d1b2a';ctx.fillRect(PAD/2,PAD/2,W-PAD,TH);
+  ctx.fillStyle='#fff';ctx.font='bold 11px Arial';ctx.textAlign='center';
+  ctx.fillText(`PLAN VIEW — ${s.key} | Slope H:V=1:${SLOPE.toFixed(2)} | Source: Navisworks FBX`,W/2,PAD/2+TH/2+4);
+  return card;
+}
+
+/* SECTION A-A (X-Z, along Y) */
+function drawSecAA(s,q){
+  const{card,cv}=mkC(`SECTION A-A (X-Z, along Y-axis) — ${s.key} | dig H=${q.H.toFixed(3)}m`,900,500);
+  const ctx=cv.getContext('2d'),W=cv.width,H=cv.height,PAD=72;
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);ctx.strokeStyle='#000';ctx.lineWidth=1;ctx.strokeRect(PAD/2,PAD/2,W-PAD,H-PAD);
+  const dw=W-PAD*2,dh=H-PAD*2;const ox=PAD,oy=PAD;
+  const FGL=MODEL.FGL,BOF=s.zmin,TOF=s.zmax;
+  const zR=Math.max(TOF-BOF+6,8),xR=Math.max(s.xsp+2*(SLOPE*q.H+0.5)+8,14);
+  const cx2=(s.xmin+s.xmax)/2,cz2=(TOF+BOF)/2;
+  const sc=Math.min(dw/xR,dh/zR)*0.82;
+  const px=x=>ox+dw/2+(x-cx2)*sc;const pz=z=>oy+dh/2-(z-cz2)*sc;
+  const ex=0.5,off=q.H*SLOPE,x0=s.xmin,x1=s.xmax;
+  const ex0=x0-ex-off,ex1=x1+ex+off,bx0=x0-ex,bx1=x1+ex;
+  // soil
+  ctx.fillStyle='rgba(139,90,43,.2)';ctx.fillRect(ox,pz(FGL),dw,pz(BOF-4)-pz(FGL));
+  ctx.strokeStyle='rgba(139,90,43,.3)';ctx.lineWidth=0.4;ctx.setLineDash([4,5]);
+  for(let z=pz(FGL);z<pz(BOF-1);z+=9){ctx.beginPath();ctx.moveTo(ox,z);ctx.lineTo(ox+dw,z);ctx.stroke();}ctx.setLineDash([]);
+  // slope fill
+  ctx.fillStyle='rgba(244,67,54,.1)';ctx.beginPath();
+  ctx.moveTo(px(ex0),pz(FGL));ctx.lineTo(px(bx0),pz(BOF));ctx.lineTo(px(bx1),pz(BOF));ctx.lineTo(px(ex1),pz(FGL));ctx.closePath();ctx.fill();
+  ctx.strokeStyle='#F44336';ctx.lineWidth=1.5;ctx.setLineDash([5,3]);
+  ctx.beginPath();ctx.moveTo(px(ex0),pz(FGL));ctx.lineTo(px(bx0),pz(BOF));ctx.stroke();
+  ctx.beginPath();ctx.moveTo(px(bx1),pz(BOF));ctx.lineTo(px(ex1),pz(FGL));ctx.stroke();ctx.setLineDash([]);
+  // Lean concrete
+  ctx.fillStyle='rgba(200,200,200,.6)';ctx.strokeStyle='#999';ctx.lineWidth=0.8;
+  ctx.fillRect(px(x0),pz(BOF),s.xsp*sc,0.1*sc);ctx.strokeRect(px(x0),pz(BOF),s.xsp*sc,0.1*sc);
+  // Footing
+  const ftgY=pz(BOF+q.ftg_h);
+  ctx.fillStyle='rgba(33,150,243,.3)';ctx.strokeStyle='#1565C0';ctx.lineWidth=2;
+  ctx.fillRect(px(x0),ftgY,s.xsp*sc,(q.ftg_h)*sc);ctx.strokeRect(px(x0),ftgY,s.xsp*sc,(q.ftg_h)*sc);
+  // Hatch footing
+  ctx.strokeStyle='rgba(33,150,243,.5)';ctx.lineWidth=0.5;
+  for(let hx=px(x0);hx<px(x1);hx+=10){ctx.beginPath();ctx.moveTo(hx,ftgY);ctx.lineTo(hx-15,pz(BOF+q.ftg_h));ctx.stroke();}
+  // Wall
+  const stemW=Math.min((s.xsp)*0.15,1.5)*sc;
+  ctx.fillStyle='rgba(33,100,200,.25)';ctx.strokeStyle='#1040A0';ctx.lineWidth=1.5;
+  ctx.fillRect(px(x0)+(s.xsp*sc-stemW)/2,pz(TOF),stemW,s.struct_h*sc-q.ftg_h*sc);
+  ctx.strokeRect(px(x0)+(s.xsp*sc-stemW)/2,pz(TOF),stemW,s.struct_h*sc-q.ftg_h*sc);
+  // FGL line
+  ctx.strokeStyle='#3fb950';ctx.lineWidth=2;ctx.setLineDash([8,4]);
+  ctx.beginPath();ctx.moveTo(ox,pz(FGL));ctx.lineTo(ox+dw,pz(FGL));ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle='#3fb950';ctx.font='bold 10px Arial';ctx.textAlign='left';ctx.fillText(`FGL EL.${FGL.toFixed(3)}m`,ox+4,pz(FGL)-4);
+  ctx.strokeStyle='#795548';ctx.lineWidth=1;ctx.setLineDash([4,3]);
+  ctx.beginPath();ctx.moveTo(ox,pz(BOF));ctx.lineTo(ox+dw,pz(BOF));ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle='#795548';ctx.font='9px Arial';ctx.fillText(`B.O.F EL.${BOF.toFixed(3)}m`,ox+4,pz(BOF)-3);
+  // Slope label
+  const smx=(ex0+bx0)/2,smz=(FGL+BOF)/2;
+  ctx.save();ctx.translate(px(smx)-8,pz(smz));ctx.rotate(-Math.atan2(q.H,off));
+  ctx.fillStyle='#F44336';ctx.font='bold 9px Arial';ctx.textAlign='center';ctx.fillText(`S=${SLOPE.toFixed(2)}`,0,0);ctx.restore();
+  // H dim
+  const rx=px(ex1)+18;ctx.strokeStyle='#333';ctx.lineWidth=0.7;
+  ctx.beginPath();ctx.moveTo(rx,pz(FGL));ctx.lineTo(rx,pz(BOF));ctx.stroke();
+  ctx.beginPath();ctx.moveTo(rx-4,pz(FGL));ctx.lineTo(rx+4,pz(FGL));ctx.stroke();
+  ctx.beginPath();ctx.moveTo(rx-4,pz(BOF));ctx.lineTo(rx+4,pz(BOF));ctx.stroke();
+  ctx.fillStyle='#333';ctx.save();ctx.translate(rx+4,(pz(FGL)+pz(BOF))/2);ctx.rotate(-Math.PI/2);ctx.font='bold 9px Arial';ctx.textAlign='center';ctx.fillText(`H=${q.H.toFixed(3)}m`,0,0);ctx.restore();
+  // Z axis
+  ctx.strokeStyle='#ccc';ctx.lineWidth=0.5;ctx.fillStyle='#666';ctx.font='9px monospace';
+  for(let z=Math.floor(BOF);z<=Math.ceil(TOF)+2;z+=2){const yz=pz(z);ctx.beginPath();ctx.moveTo(ox,yz);ctx.lineTo(ox+7,yz);ctx.stroke();ctx.textAlign='right';ctx.fillText('EL.'+z,ox-2,yz+3);}
+  // Section label
+  ctx.fillStyle='#000';ctx.font='bold 14px Arial';ctx.textAlign='center';
+  ctx.fillText('SECTION A-A',W/2,H-PAD/2-2);
+  // Title
+  ctx.fillStyle='#0d1b2a';ctx.fillRect(PAD/2,PAD/2,W-PAD,20);
+  ctx.fillStyle='#fff';ctx.font='bold 10.5px Arial';ctx.textAlign='center';
+  ctx.fillText(`SECTION A-A (X-Z) — ${s.key} | Slope 1:${SLOPE.toFixed(2)} | H=${q.H.toFixed(3)}m`,W/2,PAD/2+13);
+  return card;
+}
+
+/* SECTION B-B (Y-Z, along X) */
+function drawSecBB(s,q){
+  const{card,cv}=mkC(`SECTION B-B (Y-Z, along X-axis) — ${s.key}`,900,500);
+  const ctx=cv.getContext('2d'),W=cv.width,H=cv.height,PAD=72;
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);ctx.strokeStyle='#000';ctx.lineWidth=1;ctx.strokeRect(PAD/2,PAD/2,W-PAD,H-PAD);
+  const dw=W-PAD*2,dh=H-PAD*2;const ox=PAD,oy=PAD;
+  const FGL=MODEL.FGL,BOF=s.zmin,TOF=s.zmax;
+  const zR=Math.max(TOF-BOF+6,8),yR=Math.max(s.ysp+2*(SLOPE*q.H+0.5)+8,14);
+  const cy2=(s.ymin+s.ymax)/2,cz2=(TOF+BOF)/2;
+  const sc=Math.min(dw/yR,dh/zR)*0.82;
+  const py=y=>ox+dw/2+(y-cy2)*sc;const pz=z=>oy+dh/2-(z-cz2)*sc;
+  const ex=0.5,off=q.H*SLOPE,y0=s.ymin,y1=s.ymax;
+  const ey0=y0-ex-off,ey1=y1+ex+off,by0=y0-ex,by1=y1+ex;
+  // soil
+  ctx.fillStyle='rgba(139,90,43,.2)';ctx.fillRect(ox,pz(FGL),dw,pz(BOF-4)-pz(FGL));
+  ctx.strokeStyle='rgba(139,90,43,.3)';ctx.lineWidth=0.4;ctx.setLineDash([4,5]);
+  for(let z=pz(FGL);z<pz(BOF-1);z+=9){ctx.beginPath();ctx.moveTo(ox,z);ctx.lineTo(ox+dw,z);ctx.stroke();}ctx.setLineDash([]);
+  // slope
+  ctx.fillStyle='rgba(244,67,54,.1)';ctx.beginPath();
+  ctx.moveTo(py(ey0),pz(FGL));ctx.lineTo(py(by0),pz(BOF));ctx.lineTo(py(by1),pz(BOF));ctx.lineTo(py(ey1),pz(FGL));ctx.closePath();ctx.fill();
+  ctx.strokeStyle='#F44336';ctx.lineWidth=1.5;ctx.setLineDash([5,3]);
+  ctx.beginPath();ctx.moveTo(py(ey0),pz(FGL));ctx.lineTo(py(by0),pz(BOF));ctx.stroke();
+  ctx.beginPath();ctx.moveTo(py(by1),pz(BOF));ctx.lineTo(py(ey1),pz(FGL));ctx.stroke();ctx.setLineDash([]);
+  // lean
+  ctx.fillStyle='rgba(200,200,200,.6)';ctx.strokeStyle='#999';ctx.lineWidth=0.8;
+  ctx.fillRect(py(y0),pz(BOF),s.ysp*sc,0.1*sc);ctx.strokeRect(py(y0),pz(BOF),s.ysp*sc,0.1*sc);
+  // Footing
+  const ftgY=pz(BOF+q.ftg_h);
+  ctx.fillStyle='rgba(33,150,243,.3)';ctx.strokeStyle='#1565C0';ctx.lineWidth=2;
+  ctx.fillRect(py(y0),ftgY,s.ysp*sc,q.ftg_h*sc);ctx.strokeRect(py(y0),ftgY,s.ysp*sc,q.ftg_h*sc);
+  for(let hy=py(y0);hy<py(y1);hy+=12){ctx.strokeStyle='rgba(33,150,243,.4)';ctx.lineWidth=0.5;ctx.beginPath();ctx.moveTo(hy,ftgY);ctx.lineTo(hy-18,pz(BOF+q.ftg_h));ctx.stroke();}
+  // FGL
+  ctx.strokeStyle='#3fb950';ctx.lineWidth=2;ctx.setLineDash([8,4]);
+  ctx.beginPath();ctx.moveTo(ox,pz(FGL));ctx.lineTo(ox+dw,pz(FGL));ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle='#3fb950';ctx.font='bold 10px Arial';ctx.textAlign='left';ctx.fillText(`FGL EL.${FGL.toFixed(3)}m`,ox+4,pz(FGL)-4);
+  ctx.strokeStyle='#795548';ctx.lineWidth=1;ctx.setLineDash([4,3]);
+  ctx.beginPath();ctx.moveTo(ox,pz(BOF));ctx.lineTo(ox+dw,pz(BOF));ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle='#795548';ctx.font='9px Arial';ctx.fillText(`B.O.F EL.${BOF.toFixed(3)}m`,ox+4,pz(BOF)-3);
+  // slope label
+  ctx.save();ctx.translate(py(ey0+off/2)+2,pz((FGL+BOF)/2));ctx.rotate(-Math.atan2(q.H,off));
+  ctx.fillStyle='#F44336';ctx.font='bold 9px Arial';ctx.textAlign='center';ctx.fillText(`S=${SLOPE.toFixed(2)}`,0,0);ctx.restore();
+  // dims
+  const dz2=pz(BOF)+22;ctx.strokeStyle='#F44336';ctx.lineWidth=0.7;
+  ctx.beginPath();ctx.moveTo(py(ey0),dz2);ctx.lineTo(py(ey1),dz2);ctx.stroke();
+  ctx.fillStyle='#F44336';ctx.font='9px Arial';ctx.textAlign='center';
+  ctx.fillText(`Excav Width=${(ey1-ey0).toFixed(2)}m at FGL`,(py(ey0)+py(ey1))/2,dz2+12);
+  // Z axis
+  ctx.strokeStyle='#ccc';ctx.lineWidth=0.5;ctx.fillStyle='#666';ctx.font='9px monospace';
+  for(let z=Math.floor(BOF);z<=Math.ceil(TOF)+2;z+=2){const yz=pz(z);ctx.beginPath();ctx.moveTo(ox,yz);ctx.lineTo(ox+7,yz);ctx.stroke();ctx.textAlign='right';ctx.fillText('EL.'+z,ox-2,yz+3);}
+  ctx.fillStyle='#000';ctx.font='bold 14px Arial';ctx.textAlign='center';ctx.fillText('SECTION B-B',W/2,H-PAD/2-2);
+  ctx.fillStyle='#0d1b2a';ctx.fillRect(PAD/2,PAD/2,W-PAD,20);
+  ctx.fillStyle='#fff';ctx.font='bold 10.5px Arial';ctx.textAlign='center';
+  ctx.fillText(`SECTION B-B (Y-Z) — ${s.key} | Slope 1:${SLOPE.toFixed(2)} | L=${s.ysp.toFixed(3)}m`,W/2,PAD/2+13);
+  return card;
+}
+
+/* REBAR ARRANGEMENT */
+function drawRebar(s,q){
+  const{card,cv}=mkC(`REBAR ARRANGEMENT — ${s.key} (KDS 14 20 52 기준 배근도)`,900,540);
+  const ctx=cv.getContext('2d'),W=cv.width,H=cv.height,PAD=55;
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);ctx.strokeStyle='#000';ctx.lineWidth=1;ctx.strokeRect(PAD/2,PAD/2,W-PAD,H-PAD);
+  // Title
+  ctx.fillStyle='#0d1b2a';ctx.fillRect(PAD/2,PAD/2,W-PAD,24);
+  ctx.fillStyle='#fff';ctx.font='bold 11px Arial';ctx.textAlign='center';
+  ctx.fillText(`REBAR ARRANGEMENT — ${s.key} | ${q.rebarKg} kg/m³ | Total=${q.rebar} ton | KDS 14 20 52`,W/2,PAD/2+15);
+
+  const LEFT=PAD+10,TOP=PAD+30,PLANW=280,PLANH=220,SECW=220,SECH=220;
+
+  /* ─ FOOTING PLAN ─ */
+  ctx.strokeStyle='#555';ctx.lineWidth=1;ctx.strokeRect(LEFT,TOP,PLANW,PLANH);
+  ctx.fillStyle='rgba(200,200,200,.4)';ctx.fillRect(LEFT,TOP,PLANW,PLANH);
+  // Footing outline + hatch
+  const fp=12;
+  ctx.strokeStyle='#1565C0';ctx.lineWidth=2;ctx.strokeRect(LEFT+fp,TOP+fp,PLANW-2*fp,PLANH-2*fp);
+  ctx.fillStyle='rgba(33,150,243,.2)';ctx.fillRect(LEFT+fp,TOP+fp,PLANW-2*fp,PLANH-2*fp);
+  // Main bars (bottom): horizontal
+  ctx.strokeStyle='#8B0000';ctx.lineWidth=1.5;
+  const barSpY=[...Array(7)].map((_,i)=>TOP+fp+14+i*(PLANH-2*fp-28)/6);
+  barSpY.forEach(yy=>{ctx.beginPath();ctx.moveTo(LEFT+fp+4,yy);ctx.lineTo(LEFT+fp+PLANW-2*fp-4,yy);ctx.stroke();});
+  // Main bars: vertical
+  const barSpX=[...Array(5)].map((_,i)=>LEFT+fp+14+i*(PLANW-2*fp-28)/4);
+  barSpX.forEach(xx=>{ctx.beginPath();ctx.moveTo(xx,TOP+fp+4);ctx.lineTo(xx,TOP+fp+PLANH-2*fp-4);ctx.stroke();});
+  // Stirrups/ties
+  ctx.strokeStyle='#333';ctx.lineWidth=0.8;ctx.setLineDash([3,2]);
+  ctx.strokeRect(LEFT+fp+8,TOP+fp+8,PLANW-2*fp-16,PLANH-2*fp-16);ctx.setLineDash([]);
+  // Labels
+  ctx.fillStyle='#8B0000';ctx.font='bold 9px Arial';ctx.textAlign='center';
+  ctx.fillText('D19@150',LEFT+PLANW/2,TOP+PLANH+14);
+  ctx.fillText('D16@150',LEFT+PLANW/2,TOP+PLANH+24);
+  ctx.font='bold 10px Arial';ctx.fillStyle='#000';ctx.textAlign='left';
+  ctx.fillText('FOOTING REIN. PLAN',LEFT+2,TOP-3);
+
+  /* ─ SECTION VIEW for rebar ─ */
+  const SX=LEFT+PLANW+30,SY=TOP;
+  ctx.strokeStyle='#555';ctx.lineWidth=1;ctx.strokeRect(SX,SY,SECW,SECH);
+  ctx.fillStyle='rgba(200,200,200,.4)';ctx.fillRect(SX,SY,SECW,SECH);
+  // Concrete outline
+  ctx.strokeStyle='#1565C0';ctx.lineWidth=2;
+  const COV=20; // cover
+  ctx.strokeRect(SX+COV,SY+COV,SECW-2*COV,SECH-2*COV);
+  ctx.fillStyle='rgba(33,150,243,.15)';ctx.fillRect(SX+COV,SY+COV,SECW-2*COV,SECH-2*COV);
+  // Rebar circles (representative)
+  ctx.fillStyle='#8B0000';ctx.strokeStyle='#8B0000';ctx.lineWidth=1;
+  const rbarR=4;
+  const rposX=[SX+COV+rbarR+4,SX+SECW/2,SX+SECW-COV-rbarR-4];
+  const rposY=[SY+COV+rbarR+4,SY+SECH/2,SY+SECH-COV-rbarR-4];
+  rposX.forEach(rx2=>{rposY.forEach(ry2=>{ctx.beginPath();ctx.arc(rx2,ry2,rbarR,0,2*Math.PI);ctx.fill();});});
+  // Main bar lines
+  ctx.strokeStyle='#8B0000';ctx.lineWidth=1.2;
+  rposX.forEach(rx2=>{ctx.beginPath();ctx.moveTo(rx2,SY+COV);ctx.lineTo(rx2,SY+SECH-COV);ctx.stroke();});
+  rposY.forEach(ry2=>{ctx.beginPath();ctx.moveTo(SX+COV,ry2);ctx.lineTo(SX+SECW-COV,ry2);ctx.stroke();});
+  // Stirrup
+  ctx.strokeStyle='#333';ctx.lineWidth=1;ctx.setLineDash([2,2]);
+  ctx.strokeRect(SX+COV+rbarR+4,SY+COV+rbarR+4,SECW-2*(COV+rbarR+4),SECH-2*(COV+rbarR+4));ctx.setLineDash([]);
+  // Cover dim
+  ctx.strokeStyle='#666';ctx.lineWidth=0.7;
+  ctx.beginPath();ctx.moveTo(SX,SY+SECH/2);ctx.lineTo(SX+COV,SY+SECH/2);ctx.stroke();
+  ctx.fillStyle='#666';ctx.font='8px Arial';ctx.textAlign='center';ctx.fillText(`C=${COV}mm`,SX+COV/2,SY+SECH/2-3);
+  ctx.font='bold 10px Arial';ctx.fillStyle='#000';ctx.textAlign='left';
+  ctx.fillText('SECTION',SX+2,SY-3);
+
+  /* ─ BQ TABLE ─ */
+  const TX=LEFT,TY=TOP+PLANH+30,TW=W-PAD*2-20,TH2=140;
+  ctx.strokeStyle='#ccc';ctx.lineWidth=0.5;ctx.strokeRect(TX,TY,TW,TH2);
+  ctx.fillStyle='#0d1b2a';ctx.fillRect(TX,TY,TW,18);
+  ctx.fillStyle='#fff';ctx.font='bold 9.5px Arial';ctx.textAlign='left';ctx.fillText('  Rebar BQ Summary (KDS 14 20 52)',TX,TY+12);
+
+  const rbqItems=[
+    {spec:'D13 (Stirrup/Ties)',ratio:0.12,kg:q.rebarKg,note:'@200 vertical stirrup'},
+    {spec:'D16 (Horizontal, 2nd)',ratio:0.22,kg:q.rebarKg,note:'@150 horizontal bar'},
+    {spec:'D19 (Vertical Main)',ratio:0.36,kg:q.rebarKg,note:'@150 vertical main'},
+    {spec:'D25 (Footing Main)',ratio:0.24,kg:q.rebarKg,note:'@150 footing bottom bar'},
+    {spec:'D13 Extra Ties',ratio:0.06,kg:q.rebarKg,note:'Extra stirrup'},
+  ];
+
+  const cols=[TX+4,TX+90,TX+200,TX+280,TX+350,TX+TW-4];
+  const headers=['Bar Spec','Ratio','Formula','Qty (Ton)','KDS Note'];
+  let row=TY+30;
+  ctx.fillStyle='#1e3a5f';ctx.fillRect(TX+1,TY+19,TW-2,16);
+  ctx.fillStyle='#fff';ctx.font='bold 8.5px Arial';
+  headers.forEach((h,i)=>{ctx.textAlign='left';ctx.fillText(h,cols[i]+2,TY+29);});
+
+  rbqItems.forEach((item,i)=>{
+    const bg=i%2===0?'rgba(33,150,243,.05)':'rgba(255,255,255,.0)';
+    ctx.fillStyle=bg;ctx.fillRect(TX+1,row-2,TW-2,16);
+    const ton=r2(q.conc_total*item.ratio*q.rebarKg/1000);
+    ctx.fillStyle='#000';ctx.font='9px Arial';ctx.textAlign='left';
+    ctx.fillText(item.spec,cols[0]+2,row+9);
+    ctx.fillText(`${(item.ratio*100).toFixed(0)}%`,cols[1]+2,row+9);
+    ctx.fillText(`${q.conc_total}×${(item.ratio*100).toFixed(0)}%×${q.rebarKg}÷1000`,cols[2]+2,row+9);
+    ctx.fillStyle='#8B0000';ctx.font='bold 9px Arial';ctx.fillText(ton.toString(),cols[3]+2,row+9);
+    ctx.fillStyle='#555';ctx.font='8.5px Arial';ctx.fillText(item.note,cols[4]+2,row+9);
+    row+=17;
+  });
+  // Total row
+  ctx.fillStyle='#1e3a5f';ctx.fillRect(TX+1,row-2,TW-2,16);
+  ctx.fillStyle='#fff';ctx.font='bold 9.5px Arial';
+  ctx.fillText('TOTAL',cols[0]+2,row+9);
+  ctx.fillText(`${q.rebarKg} kg/m³ × ${q.conc_total} m³ ÷ 1000`,cols[2]+2,row+9);
+  ctx.fillStyle='#FFD700';ctx.fillText(`${q.rebar} Ton`,cols[3]+2,row+9);
+
+  return card;
+}
+
+/* ============================================================ EXPORT */
+function exportBQ(){
+  if(!MODEL){alert('Upload FBX first');return;}
+  const ts=fmtDate();
+  const wb=XLSX.utils.book_new();
+  const hdr=[['PEDAS BQ Quantity Takeoff — Per Structure'],
+    [`FGL=EL.${MODEL.FGL.toFixed(3)}m | Slope H:V=1:${SLOPE.toFixed(2)} | Clearance 0.5m | KDS Standard`],
+    [`File: ${MODEL.filename||''} | Export: ${ts}`],[],
+    ['Structure','BQ CODE','Description','Unit','Formula','Calculation','Qty']];
+  MODEL.structs.forEach(s=>{
+    const q=calcBQ(s);
+    hdr.push([s.key,'','','','','','']);
+    if(q.H>0){
+      const rows2=[
+        ['EXA01B01C01','Excavation By Machine Normal','m³',`H/3·(A₁+A₂+√A₁A₂)`,`${q.H}/3·(${q.Abot}+${q.Atop}+√(${q.Abot}·${q.Atop}))`,q.excav],
+        ['BKA01B01C01','Backfill Excavated Soil','m³',`Excav-Concrete`,`${q.excav}-${q.disposal}`,q.backfill],
+        ['DIA04B01C01','Disposal Hard Rock <10km','m³',`Excav×${(q.concRatio*100).toFixed(0)}%`,`${q.excav}×${q.concRatio}`,q.disposal],
+        ['LCA01B01C01','Lean Concrete 10~15MPa','m³',`B×L×0.1`,`${s.xsp.toFixed(3)}×${s.ysp.toFixed(3)}×0.1`,q.lean],
+        ['COA04B01C01','Structural Concrete Fck=30MPa','m³',`Excav×${(q.concRatio*100).toFixed(0)}%`,`${q.excav}×${q.concRatio}`,q.conc_total],
+        ['C1A01B01C01','Concrete Pouring Foundation','m³',`B×L×FH`,`${s.xsp.toFixed(3)}×${s.ysp.toFixed(3)}×${q.ftg_h}`,q.conc_ftg],
+        ['C1A10B01C01','Concrete Pouring Lean','m³',`B×L×0.1`,`${s.xsp.toFixed(3)}×${s.ysp.toFixed(3)}×0.1`,q.lean],
+        ['REA02B01C01','Rebar Un-coated SD400','Ton',`Conc×${q.rebarKg}kg/m³÷1000`,`${q.conc_total}×${q.rebarKg}÷1000`,q.rebar],
+        ['R1A01B01C01','Rebar Fabrication','Ton','= REA02','same',q.rebar],
+        ['R2A01B01C01','Rebar Installation Foundation','Ton','= REA02','same',q.rebar],
+        ['FOA01B01C01','Form Work Foundation Flat','m²',`2(B+L)×FH`,`2×(${s.xsp.toFixed(3)}+${s.ysp.toFixed(3)})×${q.ftg_h}`,q.form_ftg],
+        ['FOA02B01C01','Form Work Wall Flat','m²',`2(B+L)×H_wall×0.6`,`2×(${s.xsp.toFixed(3)}+${s.ysp.toFixed(3)})×${q.wall_h}×0.6`,q.form_wall],
+        ['PCA01B01C01','Bitumen Coating Below Ground','m²',`2(B+L)×H`,`2×(${s.xsp.toFixed(3)}+${s.ysp.toFixed(3)})×${q.H}`,q.coat],
+      ];
+      rows2.forEach(r=>hdr.push(['',r[0],r[1],r[2],r[3],r[4],r[5]]));
+    }
+  });
+  const ws=XLSX.utils.aoa_to_sheet(hdr);
+  ws['!cols']=[{wch:38},{wch:14},{wch:50},{wch:6},{wch:24},{wch:30},{wch:10}];
+  XLSX.utils.book_append_sheet(wb,ws,'BQ_Per_Structure');
+  // Grand total
+  let tE=0,tB=0,tD=0,tC=0,tF=0,tR=0;
+  MODEL.structs.forEach(s=>{const q=calcBQ(s);tE+=q.excav;tB+=q.backfill;tD+=q.disposal;tC+=q.conc_total;tF+=q.form_ftg+q.form_wall;tR+=q.rebar;});
+  const sum=[['Grand Total BQ'],['BQ CODE','Description','Unit','Qty'],
+    ['EXA01B01C01','Excavation By Machine Normal (70%)','m³',Math.round(tE*0.7)],
+    ['EXA01B02C01','Excavation By Machine Weathered Rock (20%)','m³',Math.round(tE*0.2)],
+    ['EXA01B03C01','Excavation By Machine Hard Rock (10%)','m³',Math.round(tE*0.1)],
+    ['BKA01B01C01','Backfill Excavated Soil','m³',Math.round(tB)],
+    ['DIA01B01C01','Disposal Normal Soil','m³',Math.round(tD*0.7)],
+    ['DIA04B01C01','Disposal Hard Rock','m³',Math.round(tD*0.1)],
+    ['COA04B01C01','Structural Concrete Fck=30MPa','m³',Math.round(tC)],
+    ['REA02B01C01','Reinforcing Bar Un-coated SD400','Ton',r1(tR)],
+    ['FOA01B01C01','Form Work Foundation','m²',Math.round(tF*0.45)],
+    ['FOA02B01C01','Form Work Wall','m²',Math.round(tF*0.55)],
+    ['','Check: Excav = Backfill + Disposal','',''],
+    ['','Total Excav',Math.round(tE),''],['','Total Backfill',Math.round(tB),''],['','Total Disposal',Math.round(tD),''],
+    ['','Sum B+D',Math.round(tB+tD),''],
+  ];
+  const ws2=XLSX.utils.aoa_to_sheet(sum);ws2['!cols']=[{wch:14},{wch:50},{wch:7},{wch:12}];
+  XLSX.utils.book_append_sheet(wb,ws2,'Grand_Total');
+  // 파일명: PEDAS_BQ_YYMMDDHHMM
+  XLSX.writeFile(wb,`PEDAS_BQ_${ts}.xlsx`);
+}
+
+document.addEventListener('keydown',e=>{
+  if(!V3)return;
+  if(e.key==='f'||e.key==='F')fitView();
+  if(e.key==='w'||e.key==='W')toggleWire();
+  if(e.key==='1')setV('iso');if(e.key==='2')setV('top');if(e.key==='3')setV('fr');if(e.key==='4')setV('sd');
+});
+</script>
+</body>
+</html>
