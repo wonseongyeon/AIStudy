@@ -1,0 +1,1233 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Equipment Foundation BQ Tool</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  if(typeof pdfjsLib !== 'undefined'){
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+</script>
+<style>
+:root{
+  --navy-900:#0B1E33;--navy-800:#122C4A;--navy-700:#183A61;--navy-600:#1C4C86;--navy-400:#3E71AC;
+  --steel-100:#F4F6F8;--steel-200:#E7EBEF;--steel-300:#DBE1E8;--steel-400:#C3CBD4;
+  --ink-900:#182230;--ink-600:#51606F;--ink-400:#7C8896;
+  --orange:#E07B39;--orange-l:#F09A5A;--green:#2E7D52;--green-bg:#EAF7EE;
+  --danger:#C0392B;--white:#FFF;
+  --sans:'Noto Sans KR','Malgun Gothic',sans-serif;
+  --mono:'JetBrains Mono',Consolas,monospace;
+  --radius:6px;--shadow:0 1px 3px rgba(11,30,51,.08);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--sans);font-size:13px;color:var(--ink-900);background:var(--steel-100);
+  height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+
+/* ── TOPBAR ── */
+.topbar{background:var(--navy-900);color:#fff;padding:0 20px;height:52px;
+  display:flex;align-items:center;gap:14px;flex-shrink:0;}
+.brand{background:var(--orange);color:#fff;font-weight:700;font-size:10px;
+  padding:3px 8px;border-radius:3px;letter-spacing:.5px;font-family:var(--mono);}
+.topbar h1{font-size:13px;font-weight:700;}
+.tb-summary{display:flex;gap:18px;margin-left:auto;}
+.tb-sum-item{text-align:right;}
+.tb-sum-label{font-size:9px;color:rgba(255,255,255,.45);letter-spacing:.5px;text-transform:uppercase;display:block;}
+.tb-sum-value{font-family:var(--mono);font-size:12px;font-weight:700;}
+.tb-right{display:flex;gap:8px;margin-left:16px;}
+
+/* ── TAB BAR ── */
+.tab-bar{background:var(--navy-800);padding:0 20px;display:flex;flex-shrink:0;
+  border-top:1px solid rgba(255,255,255,.07);}
+.tab-btn{padding:9px 18px;border:none;background:transparent;cursor:pointer;
+  font-size:12px;font-weight:600;color:rgba(255,255,255,.4);border-bottom:2px solid transparent;
+  margin-bottom:-1px;font-family:var(--sans);transition:all .15s;}
+.tab-btn:hover{color:#fff;}
+.tab-btn.active{color:#fff;border-bottom-color:var(--orange);}
+
+/* ── LAYOUT ── */
+.main-layout{display:flex;flex:1;overflow:hidden;}
+
+/* ── SIDEBAR ── */
+.sidebar{width:260px;background:var(--white);border-right:1px solid var(--steel-300);
+  display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;}
+.sidebar-head{background:var(--navy-800);color:#fff;padding:10px 14px;font-size:11px;
+  font-weight:700;letter-spacing:.8px;display:flex;align-items:center;gap:7px;flex-shrink:0;}
+.sidebar-head .dot{width:6px;height:6px;border-radius:50%;background:var(--orange);}
+.sidebar-body{flex:1;overflow-y:auto;padding:10px 12px;}
+.sidebar-body::-webkit-scrollbar{width:4px;}
+.sidebar-body::-webkit-scrollbar-thumb{background:var(--steel-400);border-radius:3px;}
+
+/* ── STRUCT LIST ── */
+.struct-search{width:100%;padding:6px 9px;border:1px solid var(--steel-300);border-radius:4px;
+  font-size:12px;margin-bottom:8px;font-family:var(--sans);}
+.struct-search:focus{outline:none;border-color:var(--navy-600);}
+.struct-item{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:5px;
+  cursor:pointer;border:1px solid transparent;margin-bottom:3px;transition:all .1s;}
+.struct-item:hover{background:var(--steel-100);border-color:var(--steel-300);}
+.struct-item.active{background:#EBF3FF;border-color:var(--navy-400);}
+.struct-item-icon{font-size:18px;flex-shrink:0;}
+.struct-item-info{flex:1;min-width:0;}
+.struct-item-name{font-size:12px;font-weight:600;color:var(--ink-900);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.struct-item-sub{font-size:10px;color:var(--ink-400);}
+.struct-item-badge{font-size:9px;background:var(--steel-200);color:var(--ink-600);
+  padding:1px 5px;border-radius:3px;font-family:var(--mono);flex-shrink:0;}
+.struct-item-badge.analyzing{background:#FFF3E0;color:var(--orange);}
+.struct-item-badge.done{background:var(--green-bg);color:var(--green);}
+.struct-item-badge.error{background:#FEE;color:var(--danger);}
+
+/* ── UPLOAD ZONE ── */
+.upload-zone{border:2px dashed var(--steel-400);border-radius:var(--radius);padding:20px;
+  text-align:center;cursor:pointer;transition:all .2s;position:relative;margin-bottom:10px;}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--orange);background:#FFF8F0;}
+.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;}
+.upload-zone .uz-icon{font-size:28px;margin-bottom:6px;}
+.upload-zone .uz-label{font-size:12px;font-weight:600;color:var(--ink-600);}
+.upload-zone .uz-sub{font-size:10px;color:var(--ink-400);margin-top:3px;}
+.upload-progress{background:var(--steel-100);border:1px solid var(--steel-300);border-radius:4px;
+  padding:8px 10px;margin-bottom:8px;font-size:11px;color:var(--ink-600);display:none;}
+.upload-progress-bar{height:4px;background:var(--steel-300);border-radius:2px;margin-top:5px;overflow:hidden;}
+.upload-progress-fill{height:100%;background:var(--orange);border-radius:2px;transition:width .3s;}
+
+/* ── CONTENT PANELS ── */
+.panel{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+
+/* ── METRIC STRIP ── */
+.metric-strip{padding:10px 16px;display:flex;gap:10px;background:var(--white);
+  border-bottom:1px solid var(--steel-300);overflow-x:auto;flex-shrink:0;}
+.metric-card{background:var(--white);border:1px solid var(--steel-300);border-left:3px solid var(--navy-400);
+  border-radius:var(--radius);padding:8px 14px;min-width:110px;flex-shrink:0;box-shadow:var(--shadow);}
+.metric-card.orange{border-left-color:var(--orange);}
+.metric-card.green{border-left-color:var(--green);}
+.metric-card.red{border-left-color:var(--danger);}
+.mc-label{font-size:9px;font-weight:700;color:var(--ink-400);letter-spacing:.5px;text-transform:uppercase;}
+.mc-value{font-family:var(--mono);font-size:17px;font-weight:700;color:var(--ink-900);}
+.mc-unit{font-size:10px;color:var(--ink-400);}
+
+/* ── CONTENT ── */
+.content-area{flex:1;overflow-y:auto;padding:16px;}
+.content-area::-webkit-scrollbar{width:5px;}
+.content-area::-webkit-scrollbar-thumb{background:var(--steel-400);border-radius:3px;}
+
+/* ── CARD ── */
+.card{background:var(--white);border:1px solid var(--steel-300);border-radius:var(--radius);
+  padding:16px;box-shadow:var(--shadow);margin-bottom:14px;position:relative;}
+.card::before,.card::after{content:'';position:absolute;width:8px;height:8px;pointer-events:none;}
+.card::before{top:-1px;left:-1px;border-top:2px solid var(--navy-400);border-left:2px solid var(--navy-400);opacity:.45;}
+.card::after{bottom:-1px;right:-1px;border-bottom:2px solid var(--navy-400);border-right:2px solid var(--navy-400);opacity:.45;}
+.card-title{font-size:10px;font-weight:700;letter-spacing:1px;color:var(--ink-400);
+  text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:6px;}
+.card-title::before{content:'';width:3px;height:11px;background:var(--orange);border-radius:2px;}
+
+/* ── DETAIL VIEW (구조물 상세) ── */
+.detail-layout{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.dim-table{width:100%;font-size:12px;border-collapse:collapse;}
+.dim-table tr{border-bottom:1px solid var(--steel-200);}
+.dim-table td{padding:5px 8px;}
+.dim-table td:first-child{color:var(--ink-400);width:120px;font-size:11px;}
+.dim-table td:last-child{font-family:var(--mono);font-weight:700;color:var(--navy-700);}
+.dim-table td.editable{cursor:pointer;border-radius:3px;transition:background .1s;}
+.dim-table td.editable:hover{background:var(--steel-100);}
+.dim-table input{width:100%;border:1px solid var(--orange);border-radius:3px;
+  padding:3px 6px;font-family:var(--mono);font-size:12px;}
+.ai-badge{display:inline-block;background:#FFF3E0;color:var(--orange);font-size:9px;
+  padding:1px 5px;border-radius:3px;font-weight:700;margin-left:4px;}
+.ai-badge.confirmed{background:var(--green-bg);color:var(--green);}
+
+/* ── BQ 결과 테이블 ── */
+.bq-section{margin-bottom:16px;}
+.bq-section-head{background:var(--navy-800);color:#fff;padding:7px 12px;
+  border-radius:4px 4px 0 0;font-size:11px;font-weight:700;display:flex;align-items:center;gap:8px;}
+.bq-code-chip{font-family:var(--mono);font-size:10px;color:var(--orange);
+  background:var(--navy-900);padding:1px 7px;border-radius:3px;}
+.bq-code-chip.custom{color:var(--green);background:var(--green-bg);border:1px solid #A8D5B7;}
+.result-table{width:100%;border-collapse:collapse;background:#fff;font-size:12px;}
+.result-table thead tr{background:var(--navy-700);color:#fff;}
+.result-table th{padding:6px 9px;text-align:left;font-size:10px;font-weight:600;white-space:nowrap;}
+.result-table tbody tr{border-bottom:1px solid var(--steel-200);}
+.result-table tbody tr:hover{background:var(--steel-100);}
+.result-table td{padding:5px 9px;}
+td.code{font-family:var(--mono);color:var(--orange);font-weight:700;font-size:10px;white-space:nowrap;}
+td.code.custom{color:var(--green);}
+td.num{font-family:var(--mono);text-align:right;}
+td.total{font-family:var(--mono);text-align:right;font-weight:700;font-size:13px;color:var(--orange);}
+td.total.custom{color:var(--green);}
+td.formula{font-family:var(--mono);font-size:10px;color:var(--ink-400);}
+tfoot tr{background:var(--steel-100);}
+tfoot td{padding:6px 9px;font-family:var(--mono);border-top:2px solid var(--navy-800);font-weight:700;}
+
+/* ── DEFAULT 코드 탭 ── */
+.defaults-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.def-row{display:flex;align-items:center;padding:7px 0;border-bottom:1px solid var(--steel-200);gap:10px;}
+.def-row:last-child{border-bottom:none;}
+.def-label{font-size:12px;color:var(--ink-900);width:220px;flex-shrink:0;}
+.def-select{flex:1;border:1px solid var(--steel-300);border-radius:4px;
+  padding:5px 8px;font-size:12px;font-family:var(--sans);background:var(--steel-100);}
+.def-select:focus{outline:none;border-color:var(--navy-600);background:#fff;}
+.def-check{margin-left:8px;}
+.criteria-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+
+/* ── BQ 코드 관리 ── */
+.code-mgr-bar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;}
+.code-mgr-bar h3{font-size:13px;font-weight:700;margin-right:auto;}
+.code-search{padding:5px 10px;border:1px solid var(--steel-300);border-radius:4px;
+  font-size:12px;width:200px;font-family:var(--sans);}
+.code-search:focus{outline:none;border-color:var(--navy-600);}
+.code-table-wrap{border:1px solid var(--steel-300);border-radius:var(--radius);overflow:hidden;margin-bottom:12px;}
+.code-table{width:100%;border-collapse:collapse;font-size:12px;}
+.code-table thead tr{background:var(--navy-800);color:#fff;}
+.code-table th{padding:7px 10px;text-align:left;font-size:10px;font-weight:600;white-space:nowrap;}
+.code-table tbody tr{border-bottom:1px solid var(--steel-200);}
+.code-table tbody tr:hover{background:var(--steel-100);}
+.code-table tbody tr.sec-row td{background:var(--steel-100);font-size:10px;font-weight:700;
+  color:var(--ink-400);padding:5px 10px;letter-spacing:.5px;text-transform:uppercase;}
+.code-table tbody tr.custom-row{background:var(--green-bg);}
+.code-table td{padding:6px 10px;vertical-align:middle;}
+.code-cell{font-family:var(--mono);font-weight:700;color:var(--navy-700);font-size:11px;}
+.code-cell.custom{color:var(--green);}
+.add-code-wrap{background:var(--steel-100);border:1px solid var(--steel-300);border-radius:var(--radius);padding:14px;}
+.add-grid{display:grid;grid-template-columns:140px 1fr 60px 1fr 80px;gap:8px;align-items:end;margin-bottom:8px;}
+.fld label{font-size:10px;color:var(--ink-400);display:block;margin-bottom:3px;font-family:var(--mono);}
+.fld input,.fld select{width:100%;border:1px solid var(--steel-300);border-radius:4px;
+  padding:5px 7px;font-size:12px;font-family:var(--mono);background:#fff;}
+.fld input:focus,.fld select:focus{outline:none;border-color:var(--orange);}
+.formula-hint{font-size:10px;color:var(--ink-400);font-style:italic;line-height:1.6;}
+.var-badges{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px;}
+.var-badge{background:var(--navy-800);color:rgba(255,255,255,.8);font-family:var(--mono);
+  font-size:10px;padding:2px 7px;border-radius:3px;cursor:pointer;}
+.var-badge:hover{background:var(--orange);}
+.active-toggle{accent-color:var(--orange);}
+.row-btn{background:none;border:1px solid var(--steel-300);border-radius:3px;
+  padding:2px 7px;font-size:10px;cursor:pointer;color:var(--ink-600);}
+.row-btn:hover{border-color:var(--navy-600);color:var(--navy-700);}
+.row-btn.del:hover{border-color:var(--danger);color:var(--danger);}
+
+/* ── BUTTONS ── */
+.btn{border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.07);color:#fff;
+  padding:7px 13px;border-radius:5px;font-size:12px;font-weight:600;
+  cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-family:var(--sans);transition:all .12s;}
+.btn:hover{background:rgba(255,255,255,.15);}
+.btn.primary{background:var(--orange);border-color:var(--orange);}
+.btn.primary:hover{background:var(--orange-l);}
+.btn.ghost{background:transparent;border-color:var(--steel-400);color:var(--ink-600);}
+.btn.ghost:hover{border-color:var(--navy-600);color:var(--navy-700);}
+.btn.small{padding:5px 10px;font-size:11px;}
+
+/* ── ANALYSIS OVERLAY ── */
+.analysis-overlay{position:fixed;inset:0;background:rgba(11,30,51,.7);z-index:300;
+  display:flex;align-items:center;justify-content:center;}
+.analysis-box{background:#fff;border-radius:8px;padding:28px 32px;min-width:320px;text-align:center;
+  box-shadow:0 20px 60px rgba(0,0,0,.3);}
+.analysis-spinner{font-size:36px;animation:spin 1.2s linear infinite;margin-bottom:12px;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.analysis-title{font-size:14px;font-weight:700;color:var(--ink-900);margin-bottom:4px;}
+.analysis-sub{font-size:12px;color:var(--ink-400);}
+.analysis-progress{margin-top:14px;background:var(--steel-200);border-radius:4px;height:6px;overflow:hidden;}
+.analysis-fill{height:100%;background:var(--orange);border-radius:4px;transition:width .4s;}
+
+/* ── MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(11,30,51,.6);z-index:200;
+  display:flex;align-items:center;justify-content:center;}
+.modal-overlay.hidden{display:none!important;}
+.modal-box{background:#fff;border-radius:8px;max-width:700px;width:95vw;max-height:88vh;
+  display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.3);}
+.modal-hdr{padding:14px 20px;border-bottom:1px solid var(--steel-300);
+  display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}
+.modal-hdr h3{font-size:14px;font-weight:700;}
+.modal-body{flex:1;overflow-y:auto;padding:20px;}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:20px;right:20px;background:var(--navy-900);color:#fff;
+  padding:10px 18px;border-radius:6px;border-left:3px solid var(--green);
+  font-size:12px;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;}
+.toast.show{opacity:1;}
+
+/* ── EMPTY ── */
+.empty{text-align:center;padding:60px 20px;color:var(--ink-400);}
+.empty .ei{font-size:44px;margin-bottom:12px;}
+
+.hidden{display:none!important;}
+</style>
+</head>
+<body>
+
+<!-- ── DRAG OVERLAY ── -->
+<div id="dragOverlay" style="display:none;position:fixed;inset:0;background:rgba(11,30,51,.8);z-index:500;
+  display:none;align-items:center;justify-content:center;flex-direction:column;gap:12px;">
+  <div style="font-size:52px">📄</div>
+  <div style="color:#fff;font-size:18px;font-weight:700">PDF 도면을 여기에 놓으세요</div>
+  <div style="color:rgba(255,255,255,.6);font-size:13px">여러 파일 동시 업로드 지원</div>
+</div>
+
+<!-- ── ANALYSIS OVERLAY ── -->
+<div id="analysisOverlay" style="display:none;position:fixed;inset:0;background:rgba(11,30,51,.7);z-index:300;align-items:center;justify-content:center;">
+  <div class="analysis-box">
+    <div class="analysis-spinner">🤖</div>
+    <div class="analysis-title" id="analysisTitle">AI 도면 분석 중…</div>
+    <div class="analysis-sub" id="analysisSub">PDF에서 치수를 자동 추출합니다</div>
+    <div class="analysis-progress"><div class="analysis-fill" id="analysisFill" style="width:0%"></div></div>
+    <div style="margin-top:10px;font-size:11px;color:var(--ink-400)" id="analysisDetail"></div>
+  </div>
+</div>
+
+<!-- ── TOPBAR ── -->
+<header class="topbar">
+  <div class="brand">BQ TOOL</div>
+  <div><h1>Equipment Foundation BQ Tool</h1></div>
+  <div class="tb-summary">
+    <div class="tb-sum-item"><span class="tb-sum-label">Excavation</span><span class="tb-sum-value" id="ts-exc">— m³</span></div>
+    <div class="tb-sum-item"><span class="tb-sum-label">Struct Conc</span><span class="tb-sum-value" id="ts-conc">— m³</span></div>
+    <div class="tb-sum-item"><span class="tb-sum-label">Rebar</span><span class="tb-sum-value" id="ts-rebar">— Ton</span></div>
+    <div class="tb-sum-item"><span class="tb-sum-label">Backfill</span><span class="tb-sum-value" id="ts-back">— m³</span></div>
+    <div class="tb-sum-item"><span class="tb-sum-label">Disposal</span><span class="tb-sum-value" id="ts-disp">— m³</span></div>
+  </div>
+  <div class="tb-right">
+    <button class="btn small" onclick="exportJSON()">JSON 저장</button>
+    <button class="btn small" onclick="importJSON()">JSON 불러오기</button>
+    <input type="file" id="importJSONInput" accept=".json" style="display:none" onchange="onImportJSON(this)">
+    <button class="btn primary small" onclick="exportCSV()">CSV 내보내기</button>
+  </div>
+</header>
+
+<!-- ── TAB BAR ── -->
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="switchTab('calc',this)">📐 물량 산출</button>
+  <button class="tab-btn" onclick="switchTab('defaults',this)">⚙ Default 코드 적용</button>
+  <button class="tab-btn" onclick="switchTab('codes',this)">🗂 BM/BQ 코드 관리</button>
+</div>
+
+<div class="main-layout">
+
+<!-- ── SIDEBAR ── -->
+<div class="sidebar">
+  <div class="sidebar-head"><div class="dot"></div>도면 목록</div>
+  <div class="sidebar-body">
+    <!-- 업로드 존 -->
+    <div class="upload-zone" id="uploadZone">
+      <input type="file" id="pdfInput" accept=".pdf,image/*" multiple onchange="handleFiles(this.files)">
+      <div class="uz-icon">📂</div>
+      <div class="uz-label">PDF / 이미지 드래그 or 클릭</div>
+      <div class="uz-sub">다수 파일 동시 업로드 지원</div>
+    </div>
+    <div class="upload-progress" id="uploadProgress">
+      <span id="uploadProgressText">처리 중…</span>
+      <div class="upload-progress-bar"><div class="upload-progress-fill" id="uploadProgressFill" style="width:0%"></div></div>
+    </div>
+    <!-- 구조물 검색 -->
+    <input class="struct-search" id="structSearch" placeholder="구조물 검색…" oninput="renderStructList()">
+    <!-- 구조물 목록 -->
+    <div id="structList">
+      <div class="empty" style="padding:30px 10px;">
+        <div class="ei" style="font-size:28px">📄</div>
+        <p style="font-size:11px">도면을 업로드하면<br>자동 분석됩니다</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── MAIN PANEL ── -->
+<div class="panel">
+
+  <!-- METRIC STRIP -->
+  <div class="metric-strip">
+    <div class="metric-card orange"><div class="mc-label">굴착 EXC</div><div class="mc-value" id="m-exc">—</div><div class="mc-unit">m³</div></div>
+    <div class="metric-card green"><div class="mc-label">구조콘크리트</div><div class="mc-value" id="m-conc">—</div><div class="mc-unit">m³</div></div>
+    <div class="metric-card"><div class="mc-label">철근 Rebar</div><div class="mc-value" id="m-rebar">—</div><div class="mc-unit">Ton</div></div>
+    <div class="metric-card"><div class="mc-label">거푸집 FW</div><div class="mc-value" id="m-fw">—</div><div class="mc-unit">m²</div></div>
+    <div class="metric-card"><div class="mc-label">되메우기</div><div class="mc-value" id="m-back">—</div><div class="mc-unit">m³</div></div>
+    <div class="metric-card red"><div class="mc-label">사토 DSP</div><div class="mc-value" id="m-disp">—</div><div class="mc-unit">m³</div></div>
+  </div>
+
+  <!-- ── 탭 1: 물량 산출 ── -->
+  <div id="tab-calc" class="content-area">
+    <div class="empty"><div class="ei">📐</div>
+      <p>왼쪽에서 PDF 도면을 업로드하면 AI가 치수를 자동 추출합니다.</p>
+      <p style="margin-top:6px;font-size:11px;color:var(--ink-400)">여러 도면을 한 번에 업로드할 수 있습니다.</p>
+    </div>
+  </div>
+
+  <!-- ── 탭 2: Default 코드 적용 ── -->
+  <div id="tab-defaults" class="content-area hidden">
+    <div class="card">
+      <div class="card-title">Default 코드 설정 [CIEQ]</div>
+      <p style="font-size:11px;color:var(--ink-400);margin-bottom:14px;">
+        여기서 정하는 값은 모든 구조물의 기본 선택값입니다. 특정 구조물을 다르게 하려면 물량 산출 탭에서 개별 변경하세요.
+      </p>
+      <div id="defaultCodeRows"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">기본 산출 기준</div>
+      <div class="criteria-grid">
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--ink-600);margin-bottom:8px;">레벨 기준</div>
+          <div class="fld" style="margin-bottom:6px;"><label>HPP (m)</label><input type="number" id="d-HPP" value="913.5" step="0.001" oninput="saveCriteria()"></div>
+          <div class="fld" style="margin-bottom:6px;"><label>FGL (m)</label><input type="number" id="d-FGL" value="913.5" step="0.001" oninput="saveCriteria()"></div>
+          <div class="fld"><label>Paving Thickness (mm)</label><input type="number" id="d-PAV" value="300" step="25" oninput="saveCriteria()"></div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--ink-600);margin-bottom:8px;">굴착 기준</div>
+          <div class="fld" style="margin-bottom:6px;"><label>작업공간 WP (mm)</label><input type="number" id="d-WP" value="500" step="50" oninput="saveCriteria()"></div>
+          <div class="fld" style="margin-bottom:6px;"><label>굴착 경사 S (H:V)</label><input type="number" id="d-S" value="0.3" step="0.1" oninput="saveCriteria()"></div>
+          <div class="fld"><label>OA Lean Offset (mm)</label><input type="number" id="d-OA" value="100" step="50" oninput="saveCriteria()"></div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--ink-600);margin-bottom:8px;">Lean / Crush Stone</div>
+          <div class="fld" style="margin-bottom:6px;"><label>Lean 두께 L (mm)</label><input type="number" id="d-L" value="75" step="25" oninput="saveCriteria()"></div>
+          <div class="fld" style="margin-bottom:6px;"><label>Crushed Stone C (mm)</label><input type="number" id="d-C" value="150" step="25" oninput="saveCriteria()"></div>
+          <div class="fld" style="margin-bottom:6px;"><label>Rebar Ratio RE</label><input type="number" id="d-RE" value="0.1" step="0.005" oninput="saveCriteria()"></div>
+          <div class="fld"><label>Grout G (mm)</label><input type="number" id="d-G" value="25" step="5" oninput="saveCriteria()"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 탭 3: BM/BQ 코드 관리 ── -->
+  <div id="tab-codes" class="content-area hidden">
+    <div class="card">
+      <div class="code-mgr-bar">
+        <h3>BM/BQ 코드 목록</h3>
+        <input class="code-search" id="codeSearch" placeholder="코드/항목명 검색…" oninput="renderCodeTable()">
+        <button class="btn ghost small" onclick="document.getElementById('importCodesInput').click()">📂 JSON 불러오기</button>
+        <input type="file" id="importCodesInput" accept=".json" style="display:none" onchange="onImportCodes(this)">
+        <button class="btn ghost small" onclick="exportCodes()">💾 JSON 내보내기</button>
+        <button class="btn ghost small" onclick="resetCodes()">↩ 기본값</button>
+      </div>
+      <p style="font-size:11px;color:var(--ink-400);margin-bottom:8px;">
+        수식 변수: <strong>HT, WP, Bot, Top, FA, FB, PA, PB, FH, HA, HB, G, C, L, OA, S, RE, ABS, ABL, ABN</strong>
+      </p>
+      <div class="var-badges" id="varBadges"></div>
+      <div style="margin-top:12px;" id="codeTableWrap"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">코드 추가</div>
+      <div class="add-code-wrap" style="background:none;border:none;padding:0;">
+        <div class="add-grid">
+          <div class="fld"><label>BQ Code</label><input id="nc-code" placeholder="EXA01B01C01"></div>
+          <div class="fld"><label>Description</label><input id="nc-desc" placeholder="Excavation; By Machine; Normal"></div>
+          <div class="fld"><label>Unit</label><input id="nc-unit" placeholder="m3"></div>
+          <div class="fld"><label>Formula</label><input id="nc-formula" placeholder="HT/3*(Bot+Top+Math.sqrt(Bot*Top))"></div>
+          <div class="fld"><button class="btn primary small" style="width:100%" onclick="addCode()">추가</button></div>
+        </div>
+        <div class="formula-hint">
+          예: 굴착 <code>HT/3*(Bot+Top+Math.sqrt(Bot*Top))</code> · Fdn콘크리트 <code>FA*FB*FH</code> · Ped <code>PA*PB*(HA+HB)</code>
+          · 철근재료 <code>(FA*FB*FH+PA*PB*(HA+HB))*RE</code> · 거푸집Fdn <code>2*(FA+FB)*FH</code>
+          · Bitumen <code>2*(FA+FB)*FH+2*(PA+PB)*(HB>0.3?HA+0.3:HA+HB)+FA*FB-PA*PB</code>
+          · Anchor <code>Math.PI*ABS*ABS/4*ABL*7.85*ABN*1.2</code>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EXPORT BAR -->
+  <div style="padding:7px 16px;border-top:1px solid var(--steel-300);background:#fff;
+    display:flex;gap:8px;justify-content:flex-end;align-items:center;flex-shrink:0;">
+    <span id="calcTime" style="font-size:11px;color:var(--ink-400);"></span>
+    <button class="btn ghost small" onclick="exportCSV()">CSV</button>
+    <button class="btn primary small" onclick="exportExcel()">Excel</button>
+  </div>
+</div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal-overlay hidden" id="editModal">
+  <div class="modal-box" style="max-width:580px;">
+    <div class="modal-hdr">
+      <h3>코드 수정</h3>
+      <button class="btn ghost small" onclick="closeEditModal()">닫기 ✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+        <div class="fld"><label>BQ Code</label><input id="edit-code" style="width:100%;padding:6px;border:1px solid var(--steel-300);border-radius:4px;font-family:var(--mono);font-size:12px;"></div>
+        <div class="fld"><label>Unit</label><input id="edit-unit" style="width:100%;padding:6px;border:1px solid var(--steel-300);border-radius:4px;font-family:var(--mono);font-size:12px;"></div>
+      </div>
+      <div class="fld" style="margin-bottom:10px;"><label>Description</label>
+        <input id="edit-desc" style="width:100%;padding:6px;border:1px solid var(--steel-300);border-radius:4px;font-size:12px;"></div>
+      <div class="fld" style="margin-bottom:14px;"><label>Formula</label>
+        <input id="edit-formula" style="width:100%;padding:6px;border:1px solid var(--steel-300);border-radius:4px;font-family:var(--mono);font-size:12px;"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button class="btn ghost small" onclick="closeEditModal()">취소</button>
+        <button class="btn primary small" onclick="saveEdit()">저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+// DEFAULT BQ 코드 (회사 CIEQ 표준)
+// ============================================================
+const DEFAULT_CODES = [
+  {code:'EXA01B01C01',desc:'Excavation; By Machine; Normal',formula:'HT/3*(Bot+Top+Math.sqrt(Bot*Top))',unit:'m3',active:true,section:'Earthwork'},
+  {code:'DIA01B01C01',desc:'Disposal; Normal Soil; Distance < 10 km',formula:'PA*PB*HA+FA*FB*FH+(FA+2*OA)*(FB+2*OA)*L+(FA+2*OA)*(FB+2*OA)*C',unit:'m3',active:true,section:'Earthwork'},
+  {code:'BKA01B01C01',desc:'Backfill(with Compaction); Excavated Soil',formula:'HT/3*(Bot+Top+Math.sqrt(Bot*Top))-(PA*PB*HA+FA*FB*FH+(FA+2*OA)*(FB+2*OA)*L+(FA+2*OA)*(FB+2*OA)*C)',unit:'m3',active:true,section:'Earthwork'},
+  {code:'FIA05B01C01',desc:'Earth fill; Crushed Stone(Gravel)',formula:'(FA+2*OA)*(FB+2*OA)*C',unit:'m3',active:true,section:'Earthwork'},
+  {code:'COA02B01C01',desc:'Structural Concrete - Material only; Fck=25MPa; Type I; Normal',formula:'FA*FB*FH+PA*PB*(HA+HB)',unit:'m3',active:true,section:'Concrete'},
+  {code:'LCA01B01C01',desc:'Lean Concrete - Material only; 10MPa≤Fck<15MPa; Type I',formula:'(FA+2*OA)*(FB+2*OA)*L',unit:'m3',active:true,section:'Concrete'},
+  {code:'C1A01B01C01',desc:'Concrete Pouring - Construction only; Equipment Foundation & Footing',formula:'FA*FB*FH',unit:'m3',active:true,section:'Concrete'},
+  {code:'C1A02B01C01',desc:'Concrete Pouring - Construction only; Pedestal',formula:'PA*PB*(HA+HB)',unit:'m3',active:true,section:'Concrete'},
+  {code:'C1A10B01C01',desc:'Concrete Pouring - Construction only; Lean Concrete',formula:'(FA+2*OA)*(FB+2*OA)*L',unit:'m3',active:true,section:'Concrete'},
+  {code:'REA02B01C01',desc:'Reinforcing Bar - Material only; 400MPa≤Fck≤422MPa; Deformed',formula:'(FA*FB*FH+PA*PB*(HA+HB))*RE',unit:'Ton',active:true,section:'Reinforcement'},
+  {code:'R1A01B01C01',desc:'Reinforcing Bar Fabrication - Construction only',formula:'(FA*FB*FH+PA*PB*(HA+HB))*RE',unit:'Ton',active:true,section:'Reinforcement'},
+  {code:'R2A01B01C01',desc:'Reinforcing Bar Installation - Construction only; Equipment Foundation & Footing',formula:'FA*FB*FH*RE',unit:'Ton',active:true,section:'Reinforcement'},
+  {code:'R2A02B01C01',desc:'Reinforcing Bar Installation - Construction only; Pedestal',formula:'PA*PB*(HA+HB)*RE',unit:'Ton',active:true,section:'Reinforcement'},
+  {code:'FAA01B01C01',desc:'False Work; Scaffolding Work; 1.5m < H ≤ 10m',formula:'(HA+HB+G)>1.5?2*((PA+2)+(PB+2))*(HA+HB+G):0',unit:'m2',active:true,section:'Formwork'},
+  {code:'FOA01B01C01',desc:'Form Work; Equipment Foundation & Footing; Flat Type Form',formula:'2*(FA+FB)*FH',unit:'m2',active:true,section:'Formwork'},
+  {code:'FOA02B01C01',desc:'Form Work; Pedestal; Flat Type Form',formula:'2*(PA+PB)*(HA+HB)',unit:'m2',active:true,section:'Formwork'},
+  {code:'PCA01B01C01',desc:'Concrete Protection; for Below Ground; Bitumen Coating',formula:'2*(FA+FB)*FH+2*(PA+PB)*(HB>0.3?HA+0.3:HA+HB)+FA*FB-PA*PB',unit:'m2',active:true,section:'Protection & Misc'},
+  {code:'PCA02B05C01',desc:'Concrete Protection; for Above Ground; Chemical Resistant Resin Coating (Epoxy)',formula:'2*(PA+PB)*HB',unit:'m2',active:true,section:'Protection & Misc'},
+  {code:'GRA01B01C01',desc:'Grouting; Nonshrink Cement Based Grout',formula:'PA*PB*G',unit:'m3',active:true,section:'Protection & Misc'},
+  {code:'JOA02B01C02',desc:'Joint; Isolation Joint; without Dowel Bar; 150mm with sealant & filler',formula:'2*(PA+PB)',unit:'m',active:true,section:'Protection & Misc'},
+  {code:'MTA08B01C01',desc:'Metal Works; Anchor Bolt; HDG; Installation Only',formula:'Math.PI*ABS*ABS/4*ABL*7.85*ABN*1.2',unit:'Ton',active:true,section:'Protection & Misc'},
+];
+
+const DEFAULT_CODE_LABELS = {
+  Excavation:'Excavation; By Machine; Normal',
+  Disposal:'Disposal; Normal Soil; Distance < 10 km',
+  Backfill:'Backfill(with Compaction); Excavated Soil',
+  'Structural Concrete - Material only':'Structural Concrete - Material only; Fck=25MPa; Type I; Normal',
+  'Lean Concrete - Material only':'Lean Concrete - Material only; 10MPa≤Fck<15MPa; Type I',
+  Grouting:'Grouting; Nonshrink Cement Based Grout',
+  'Reinforcing Bar - Material only':'Reinforcing Bar - Material only; 400MPa≤Fck≤422MPa; Deformed',
+  'Concrete Protection (Below Ground)':'Concrete Protection; for Below Ground; Bitumen Coating',
+  'Concrete Protection (Above Ground)':'Concrete Protection; for Above Ground; Chemical Resistant Resin Coating (Epoxy)',
+  Joint:'Joint; Isolation Joint; without Dowel Bar; 150mm with sealant & filler',
+  'Metal Works':'Metal Works; Anchor Bolt; HDG; Installation Only',
+};
+
+const VARS = ['HT','WP','Bot','Top','FA','FB','PA','PB','FH','HA','HB','G','C','L','OA','S','RE','ABS','ABL','ABN'];
+
+// ============================================================
+// STATE
+// ============================================================
+let codes     = JSON.parse(localStorage.getItem('bq_v4_codes')||'null') || DEFAULT_CODES.map(c=>({...c,custom:false}));
+let criteria  = JSON.parse(localStorage.getItem('bq_v4_crit')||'null')  || {HPP:913.5,FGL:913.5,PAV:300,WP:500,S:0.3,OA:100,L:75,C:150,RE:0.1,G:25};
+let defCodes  = JSON.parse(localStorage.getItem('bq_v4_def')||'null')   || {};
+let structures= []; // {id, name, file, status, dims, bqOverrides, thumb}
+let selId     = null;
+let editingIdx= null;
+let _busy     = false;
+
+function saveCodes(){ localStorage.setItem('bq_v4_codes', JSON.stringify(codes)); }
+function saveCriteria(){
+  criteria={HPP:+gv('d-HPP'),FGL:+gv('d-FGL'),PAV:+gv('d-PAV')/1000,
+    WP:+gv('d-WP')/1000,S:+gv('d-S'),OA:+gv('d-OA')/1000,
+    L:+gv('d-L')/1000,C:+gv('d-C')/1000,RE:+gv('d-RE'),G:+gv('d-G')/1000};
+  localStorage.setItem('bq_v4_crit', JSON.stringify(criteria));
+}
+function gv(id){ return document.getElementById(id)?.value; }
+
+// ============================================================
+// 파일 처리 — 멀티 업로드
+// ============================================================
+async function handleFiles(fileList){
+  const files = Array.from(fileList);
+  if(!files.length) return;
+  if(_busy){ showToast('이전 업로드 처리 중입니다.'); return; }
+  _busy = true;
+
+  const prog = document.getElementById('uploadProgress');
+  const fill = document.getElementById('uploadProgressFill');
+  const txt  = document.getElementById('uploadProgressText');
+  prog.style.display = 'block';
+
+  for(let i=0; i<files.length; i++){
+    const f = files[i];
+    const pct = Math.round((i/files.length)*100);
+    fill.style.width = pct+'%';
+    txt.textContent = `분석 중… (${i+1}/${files.length}) ${f.name}`;
+
+    // 이미 있는 파일은 스킵
+    if(structures.find(s=>s.file===f.name)){
+      showToast(`${f.name} 이미 로드됨`);
+      if(i<files.length-1) await raf();
+      continue;
+    }
+
+    const id = 'S_'+Date.now()+'_'+i;
+    const struct = {id, name:f.name.replace(/\.[^.]+$/,''), file:f.name, status:'analyzing', dims:null, bqOverrides:{}, thumb:null};
+    structures.push(struct);
+    if(!selId) selId = id;
+    renderStructList();
+
+    try {
+      // PDF/이미지 → 수동입력 폼으로 바로 전환
+      // (AI API는 브라우저에서 직접 호출 불가 — CORS 제한)
+      // 파일명에서 도면번호 자동 파싱
+      const dimPreset = guessDimsFromFilename(f.name);
+      struct.dims   = dimPreset;
+      struct.status = 'needs_input'; // 수동입력 필요 상태
+      // PDF 미리보기용 base64 저장 시도 (실패해도 무관)
+      try {
+        const {base64, mediaType} = await fileToBase64(f);
+        struct._base64    = base64;
+        struct._mediaType = mediaType;
+      } catch(e) { /* 미리보기 불가 — 무시 */ }
+    } catch(err){
+      struct.status   = 'needs_input';
+      struct.errorMsg = err.message;
+    }
+
+    renderStructList();
+    if(selId===id) renderCalcTab();
+    if(i<files.length-1) await raf();
+  }
+
+  fill.style.width = '100%';
+  txt.textContent = `${files.length}개 파일 처리 완료`;
+  setTimeout(()=>{ prog.style.display='none'; fill.style.width='0%'; }, 2000);
+  _busy = false;
+  updateSummary();
+  showToast(`${files.length}개 도면 분석 완료`);
+}
+
+function raf(){ return new Promise(r=>requestAnimationFrame(r)); }
+
+async function fileToBase64(file){
+  return new Promise((res,rej)=>{
+    if(file.type==='application/pdf'){
+      const fr = new FileReader();
+      fr.onload = async e=>{
+        try {
+          // PDF.js가 헤드에서 미리 로드됨
+          if(typeof pdfjsLib === 'undefined') throw new Error('PDF.js 미로드 — 페이지를 새로고침하세요');
+          const pdf  = await pdfjsLib.getDocument({data: new Uint8Array(e.target.result)}).promise;
+          const page = await pdf.getPage(1);
+          const vp   = page.getViewport({scale: 2.0}); // 고해상도로 AI 분석 정확도 향상
+          const cv   = document.createElement('canvas');
+          cv.width = vp.width; cv.height = vp.height;
+          await page.render({canvasContext: cv.getContext('2d'), viewport: vp}).promise;
+          const b64 = cv.toDataURL('image/jpeg', 0.90).split(',')[1];
+          res({base64: b64, mediaType: 'image/jpeg'});
+        } catch(err){ rej(err); }
+      };
+      fr.onerror = ()=>rej(new Error('PDF 읽기 실패'));
+      fr.readAsArrayBuffer(file);
+    } else {
+      // 이미지 파일
+      const fr = new FileReader();
+      fr.onload = e=>{
+        const dataUrl = e.target.result;
+        const mediaType = file.type || 'image/jpeg';
+        const b64 = dataUrl.split(',')[1];
+        res({base64: b64, mediaType});
+      };
+      fr.onerror = ()=>rej(new Error('이미지 읽기 실패'));
+      fr.readAsDataURL(file);
+    }
+  });
+}
+
+// ============================================================
+// 파일명 기반 도면 프리셋 추측 + 기본값
+// ============================================================
+const DRAWING_PRESETS = {
+  // GAD-1465 / DED-1460 — Mansourah-Massarah Gold (BLW Air Compressor)
+  'GAD-1465': {FA:3.9,FB:2.675,PA:3.5,PB:2.275,FH:0.6,HA:1.2,HB:0.225,G:0.025,
+    C:0.15,L:0.075,OA:0.1,S:0.3,RE:0.1,ABS:0.075,ABL:0.125,ABN:4,
+    HPP:913.5,FGL:913.5,PAV:0.3,N:1,
+    drawing_no:'MD-216-39AB-EG-CV-GAD-1465',item_name:'MKD F (BLW-001)',notes:'Air Compressor Foundation'},
+  'DED-1460': {FA:3.9,FB:2.675,PA:3.5,PB:2.275,FH:0.6,HA:1.2,HB:0.225,G:0.025,
+    C:0.15,L:0.075,OA:0.1,S:0.3,RE:0.1,ABS:0.075,ABL:0.125,ABN:4,
+    HPP:913.5,FGL:913.5,PAV:0.3,N:1,
+    drawing_no:'MD-216-39AB-EG-CV-DED-1460',item_name:'MKD F (BLW-001)',notes:'RCC Detail — D16@200, D10@200, D10@300'},
+};
+
+function guessDimsFromFilename(filename){
+  const fn = filename.toUpperCase();
+  // 도면번호 키워드 매칭
+  for(const [key, preset] of Object.entries(DRAWING_PRESETS)){
+    if(fn.includes(key.toUpperCase())) return {...preset};
+  }
+  // 기본값 (Default 코드 적용 탭 기준)
+  return {
+    FA:null,FB:null,PA:null,PB:null,FH:null,HA:null,HB:null,G:null,
+    C:null,L:null,OA:null,S:null,RE:null,ABS:null,ABL:null,ABN:null,
+    HPP:null,FGL:null,PAV:null,N:1,
+    drawing_no:filename.replace(/\.[^.]+$/,''),item_name:'',notes:''
+  };
+}
+
+
+
+// analyzeDrawingWithAI — 브라우저에서 직접 호출 불가 (CORS). 수동입력 방식으로 대체.
+async function analyzeDrawingWithAI(){ throw new Error('직접 호출 불가'); }
+
+// ============================================================
+// 계산 엔진
+// ============================================================
+function r2(v){return Math.round(v*100)/100;}
+function r3(v){return Math.round(v*1000)/1000;}
+
+function getVars(struct){
+  const d = struct.dims || {};
+  const ov= struct.dimOverrides || {};
+  const cr= criteria;
+  // dims에서 값 가져오되 override 우선, 없으면 criteria
+  const get = (k, def) => ov[k]!==undefined ? ov[k] : (d[k]!==null&&d[k]!==undefined ? d[k] : (cr[k]!==undefined?cr[k]:def));
+  const FA=get('FA',3.9), FB=get('FB',2.675), PA=get('PA',3.5), PB=get('PB',2.275);
+  const FH=get('FH',0.6), HA=get('HA',1.2), HB=get('HB',0.225), Gv=get('G',cr.G);
+  const C=get('C',cr.C), L=get('L',cr.L), OA=get('OA',cr.OA), S=get('S',cr.S);
+  const RE=get('RE',cr.RE), ABS=get('ABS',0.075), ABL=get('ABL',0.125), ABN=get('ABN',4);
+  const HPP=get('HPP',cr.HPP), FGL=get('FGL',cr.FGL), PAV=get('PAV',cr.PAV)||0.3;
+  const diff = HPP-FGL;
+  const HT = Math.max(0,Math.round((FH+HA+C+L-(diff>PAV?diff:PAV))*10000)/10000);
+  const WP = HT>2?0.9:get('WP',cr.WP)||0.5;
+  const Bot= (FA+2*(WP+OA))*(FB+2*(WP+OA));
+  const Top= (FA+2*((WP+OA)+HT*S))*(FB+2*((WP+OA)+HT*S));
+  return {HT,WP,Bot,Top,FA,FB,PA,PB,FH,HA,HB,G:Gv,C,L,OA,S,RE,ABS,ABL,ABN};
+}
+
+function evalFormula(formula, vars){
+  try{
+    const {HT,WP,Bot,Top,FA,FB,PA,PB,FH,HA,HB,G,C,L,OA,S,RE,ABS,ABL,ABN}=vars;
+    return new Function('HT','WP','Bot','Top','FA','FB','PA','PB','FH','HA','HB','G','C','L','OA','S','RE','ABS','ABL','ABN','Math',
+      `return (${formula});`)(HT,WP,Bot,Top,FA,FB,PA,PB,FH,HA,HB,G,C,L,OA,S,RE,ABS,ABL,ABN,Math);
+  }catch{return null;}
+}
+
+function calcStruct(struct){
+  const activeCodes = codes.filter(c=>c.active);
+  const vars = getVars(struct);
+  const N = struct.dims?.N || 1;
+  const results = {};
+  activeCodes.forEach(c=>{
+    // 구조물별 override 코드 있으면 그걸로, 없으면 활성 코드
+    const formula = struct.bqOverrides?.[c.code]?.formula || c.formula;
+    const val = evalFormula(formula, vars);
+    results[c.code] = val!==null ? r3(val*N) : null;
+  });
+  return {vars, results, N};
+}
+
+// ============================================================
+// 렌더링
+// ============================================================
+function renderStructList(){
+  const q = (document.getElementById('structSearch')?.value||'').toLowerCase();
+  const el = document.getElementById('structList');
+  const filtered = structures.filter(s=>!q||s.name.toLowerCase().includes(q)||s.file.toLowerCase().includes(q));
+  if(!filtered.length){
+    el.innerHTML=`<div class="empty" style="padding:20px 10px;"><div class="ei" style="font-size:28px">📄</div><p style="font-size:11px;">도면을 업로드하세요</p></div>`;
+    return;
+  }
+  el.innerHTML = filtered.map(s=>{
+    const statusMap={
+      analyzing:['analyzing','분석중'],
+      done:['done','완료'],
+      needs_input:['analyzing','입력필요'],
+      error:['error','오류']
+    };
+    const [cls,txt]=statusMap[s.status]||['',''];
+    const icon = {'done':'🏗️','needs_input':'📋','error':'⚠️','analyzing':'⏳'}[s.status]||'📄';
+    const N = s.dims?.N||1;
+    return `<div class="struct-item${selId===s.id?' active':''}" onclick="selectStruct('${s.id}')">
+      <div class="struct-item-icon">${icon}</div>
+      <div class="struct-item-info">
+        <div class="struct-item-name">${s.name}</div>
+        <div class="struct-item-sub">${s.dims?.drawing_no||s.file}${N>1?` · N=${N}`:''}</div>
+      </div>
+      <div class="struct-item-badge ${cls}">${txt}</div>
+    </div>`;
+  }).join('');
+}
+
+function selectStruct(id){
+  selId = id;
+  renderStructList();
+  renderCalcTab();
+}
+
+function renderCalcTab(){
+  const area = document.getElementById('tab-calc');
+  const struct = structures.find(s=>s.id===selId);
+  if(!struct){ area.innerHTML=`<div class="empty"><div class="ei">📐</div><p>도면을 업로드하면 자동 분석됩니다.</p></div>`; return; }
+  if(struct.status==='analyzing'){
+    area.innerHTML=`<div class="empty"><div class="ei">⏳</div><p>파일 처리 중…</p></div>`; return;
+  }
+
+  // needs_input: 치수 입력 필요 → 수동입력 폼 바로 표시
+  if(struct.status==='needs_input'){
+    const hasPreset = struct.dims && Object.values(struct.dims).some(v=>v!==null&&typeof v==='number');
+    area.innerHTML=`
+    <div class="card">
+      <div class="card-title">📐 치수 입력 — ${struct.name}</div>
+      ${hasPreset?
+        `<div style="background:#EAF7EE;border:1px solid #A8D5B7;border-radius:5px;padding:8px 12px;margin-bottom:12px;font-size:11px;color:var(--green)">
+          ✅ <strong>도면번호 인식:</strong> ${struct.dims?.drawing_no||''} — 해당 도면 기준 치수가 자동 입력되었습니다. 확인 후 적용하세요.
+        </div>`:
+        `<div style="background:#FFF8F0;border:1px solid #FFD8A8;border-radius:5px;padding:8px 12px;margin-bottom:12px;font-size:11px;color:var(--ink-600)">
+          📋 도면에서 치수를 직접 입력하세요. Default 코드 탭의 기준값이 초기값으로 설정됩니다.
+        </div>`
+      }
+      ${buildManualForm(struct.id)}
+    </div>`;
+    return;
+  }
+  if(struct.status==='error'){
+    // 오류도 수동입력 폼으로
+    struct.status = 'needs_input';
+    renderCalcTab();
+    return;
+  }
+
+  const calc = calcStruct(struct);
+  const {vars,results,N} = calc;
+  const d = struct.dims||{};
+  const sections=[...new Set(codes.filter(c=>c.active).map(c=>c.section||'기타'))];
+
+  // 치수 편집 테이블
+  const dimRows = [
+    ['FA','Foundation 길이 (m)',vars.FA],['FB','Foundation 폭 (m)',vars.FB],
+    ['FH','Footing 높이 (m)',vars.FH],['PA','Pedestal 길이 (m)',vars.PA],
+    ['PB','Pedestal 폭 (m)',vars.PB],['HA','Pedestal UG 높이 (m)',vars.HA],
+    ['HB','Pedestal AG 높이 (m)',vars.HB],['HT','굴착 깊이 HT (계산)',r2(vars.HT)],
+    ['WP','작업공간 WP (m)',r2(vars.WP)],['Bot','굴착 하단면 (m²)',r2(vars.Bot)],
+    ['Top','굴착 상단면 (m²)',r2(vars.Top)],
+  ];
+
+  let bqHtml = sections.map(sec=>{
+    const secCodes=codes.filter(c=>c.active&&(c.section||'기타')===sec);
+    const rows=secCodes.map(c=>{
+      const val=results[c.code];
+      const isCustom=c.custom;
+      const sf=c.formula.length>40?c.formula.slice(0,40)+'…':c.formula;
+      return `<tr>
+        <td class="code ${isCustom?'custom':''}">${isCustom?'★ ':''}CIEQ${c.code}</td>
+        <td style="font-size:11px;color:var(--ink-600)">${c.desc}</td>
+        <td class="formula" title="${c.formula}">${sf}</td>
+        <td class="num" style="color:var(--ink-400)">${val!==null?r3(val/N):'-'}</td>
+        <td class="num" style="color:var(--navy-700)">${N}</td>
+        <td class="${isCustom?'total custom':'total'}">${val!==null?val:'ERR'}</td>
+        <td class="num" style="font-size:10px;color:var(--ink-400)">${c.unit}</td>
+      </tr>`;
+    }).join('');
+    return `<div class="bq-section">
+      <div class="bq-section-head">${sec}</div>
+      <table class="result-table">
+      <thead><tr><th>BQ Code</th><th>Description</th><th>Formula</th><th>Unit BM</th><th>N</th><th>Total BM</th><th>Unit</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>`;
+  }).join('');
+
+  area.innerHTML = `
+  <div class="card" style="margin-bottom:14px;">
+    <div class="card-title">도면 정보 & 치수 <span class="ai-badge confirmed">AI 추출</span></div>
+    <div class="detail-layout">
+      <div>
+        <table class="dim-table">
+          <tr><td>도면번호</td><td>${d.drawing_no||'-'} <button class="row-btn" onclick="editDim('${struct.id}','drawing_no')" style="font-size:9px;margin-left:4px">수정</button></td></tr>
+          <tr><td>구조물 TAG</td><td>${d.item_name||struct.name}</td></tr>
+          <tr><td>수량 N</td><td>${N} EA</td></tr>
+          ${dimRows.map(([k,lbl,v])=>`<tr>
+            <td>${lbl}</td>
+            <td class="editable" onclick="editDimVal('${struct.id}','${k}',${v})">${v} <span style="font-size:9px;color:var(--ink-400)">✏</span></td>
+          </tr>`).join('')}
+        </table>
+      </div>
+      <div>
+        <div style="background:var(--navy-900);border-radius:5px;padding:10px 14px;font-family:var(--mono);font-size:11px;color:#fff;">
+          <div style="margin-bottom:5px;color:rgba(255,255,255,.5);font-size:9px;letter-spacing:1px">계산값</div>
+          <div style="display:flex;gap:14px;flex-wrap:wrap;">
+            <div><span style="color:rgba(255,255,255,.5)">HT</span> <strong style="color:var(--orange)">${r2(vars.HT)}m</strong></div>
+            <div><span style="color:rgba(255,255,255,.5)">WP</span> <strong style="color:#4A9EFF">${r2(vars.WP)}m</strong></div>
+            <div><span style="color:rgba(255,255,255,.5)">Bot</span> <strong>${r2(vars.Bot)}m²</strong></div>
+            <div><span style="color:rgba(255,255,255,.5)">Top</span> <strong>${r2(vars.Top)}m²</strong></div>
+          </div>
+        </div>
+        ${d.notes?`<div style="margin-top:10px;background:#FFF8F0;border:1px solid #FFD8A8;border-radius:4px;padding:8px 10px;font-size:11px;color:var(--ink-600)"><strong>AI 노트:</strong> ${d.notes}</div>`:''}
+        <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="btn ghost small" onclick="reanalyze('${struct.id}')">🔄 재분석</button>
+          <button class="btn ghost small" onclick="removeStruct('${struct.id}')">🗑 제거</button>
+          <button class="btn primary small" onclick="calcAndScrollToResult()">▶ 전체 재계산</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  ${bqHtml}`;
+
+  updateSummary();
+  document.getElementById('calcTime').textContent=`산출: ${new Date().toLocaleTimeString('ko-KR')}`;
+}
+
+function editDimVal(sid, key, cur){
+  const val = prompt(`${key} 값 수정 (현재: ${cur}):`, cur);
+  if(val===null) return;
+  const num = parseFloat(val);
+  if(isNaN(num)){ showToast('숫자를 입력하세요'); return; }
+  const s = structures.find(s=>s.id===sid);
+  if(!s) return;
+  if(!s.dimOverrides) s.dimOverrides={};
+  s.dimOverrides[key] = num;
+  if(!s.dims) s.dims={};
+  s.dims[key] = num;
+  renderCalcTab();
+}
+
+function editDim(sid, key){
+  const s = structures.find(s=>s.id===sid);
+  if(!s) return;
+  const val = prompt(`${key} 수정:`, s.dims?.[key]||'');
+  if(val===null) return;
+  if(!s.dims) s.dims={};
+  s.dims[key] = val;
+  renderCalcTab();
+}
+
+async function reanalyze(sid){
+  // AI 직접 호출 불가 → 수동입력 폼으로 전환
+  const s = structures.find(s=>s.id===sid);
+  if(!s) return;
+  s.status = 'needs_input';
+  renderStructList();
+  renderCalcTab();
+  showToast('치수를 직접 입력해주세요');
+}
+
+function buildManualForm(sid){
+  const s = structures.find(s=>s.id===sid);
+  const d = s?.dims || {};
+  const cr= criteria;
+  // 값 없으면 criteria 기본값 사용
+  const v = (k, def) => (d[k]!==null&&d[k]!==undefined) ? d[k] : (cr[k]!==undefined?cr[k]:def);
+  const fields=[
+    ['drawing_no','도면번호','text',   d.drawing_no||''],
+    ['item_name', '구조물 TAG','text', d.item_name||s?.name||''],
+    ['N',         '수량 N (EA)','number', v('N',1)],
+    ['FA',        'Foundation 길이 FA (m)','number', v('FA',3.9)],
+    ['FB',        'Foundation 폭 FB (m)','number',   v('FB',2.675)],
+    ['FH',        'Footing 두께 FH (m)','number',    v('FH',0.6)],
+    ['PA',        'Pedestal 길이 PA (m)','number',   v('PA',3.5)],
+    ['PB',        'Pedestal 폭 PB (m)','number',     v('PB',2.275)],
+    ['HA',        'Pedestal 지하높이 HA (m)','number', v('HA',1.2)],
+    ['HB',        'Pedestal 지상높이 HB (m)','number', v('HB',0.225)],
+    ['FGL',       'FGL 레벨 (m RL)','number',       v('FGL',cr.FGL||913.5)],
+    ['HPP',       'HPP 레벨 (m RL)','number',       v('HPP',cr.HPP||913.5)],
+    ['G',         'Grout 두께 G (m)','number',       v('G', cr.G||0.025)],
+    ['ABS',       'Anchor Bolt 직경 (m)','number',   v('ABS',0.075)],
+    ['ABL',       'Anchor Bolt 길이 (m)','number',   v('ABL',0.125)],
+    ['ABN',       'Anchor Bolt 수량 (EA)','number',  v('ABN',4)],
+    ['notes',     '비고','text',                     d.notes||''],
+  ];
+  const style = 'width:100%;border:1px solid var(--steel-300);border-radius:4px;padding:5px 8px;font-family:var(--mono);font-size:12px;background:var(--steel-100);';
+  const rows = fields.map(([k,lbl,type,val])=>`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+      <label style="width:210px;font-size:11px;color:var(--ink-600);flex-shrink:0">${lbl}</label>
+      <input id="mf_${sid}_${k}" type="${type}" value="${val}" style="${style}">
+    </div>`).join('');
+  return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 20px;">${rows}</div>
+    <div style="margin-top:14px;display:flex;gap:8px;">
+      <button class="btn primary" style="min-width:140px" onclick="applyManualEntry('${sid}')">✅ 적용 & 물량 산출</button>
+      <button class="btn ghost small" onclick="removeStruct('${sid}')">🗑 제거</button>
+    </div>`;
+}
+
+function enableManualEntry(sid){
+  const form = document.getElementById(`manualEntryForm_${sid}`);
+  if(form) form.classList.toggle('hidden');
+}
+
+function applyManualEntry(sid){
+  const s = structures.find(s=>s.id===sid);
+  if(!s) return;
+  const keys=['drawing_no','item_name','N','FA','FB','FH','PA','PB','HA','HB','FGL','HPP','G','ABS','ABL','ABN'];
+  if(!s.dims) s.dims={};
+  keys.forEach(k=>{
+    const el=document.getElementById(`mf_${sid}_${k}`);
+    if(!el) return;
+    const v=el.value.trim();
+    if(k==='drawing_no'||k==='item_name'||k==='notes') s.dims[k]=v;
+    else s.dims[k]=parseFloat(v)||null;
+  });
+  s.status='done';
+  renderStructList();
+  renderCalcTab();
+  updateSummary();
+  showToast('수동 입력 적용 완료!');
+}
+
+function removeStruct(sid){
+  if(!confirm('이 구조물을 제거하시겠습니까?')) return;
+  structures = structures.filter(s=>s.id!==sid);
+  if(selId===sid) selId = structures.length?structures[0].id:null;
+  renderStructList();
+  renderCalcTab();
+  updateSummary();
+}
+
+function calcAndScrollToResult(){
+  renderCalcTab();
+  showToast('재계산 완료');
+}
+
+function updateSummary(){
+  let exc=0, conc=0, rebar=0, back=0, disp=0, fw=0;
+  structures.filter(s=>s.status==='done').forEach(s=>{
+    const {results}=calcStruct(s);
+    codes.forEach(c=>{
+      const v=results[c.code]||0;
+      if(c.code.startsWith('EXA')) exc+=v;
+      if(c.code.startsWith('COA')) conc+=v;
+      if(c.code==='REA02B01C01') rebar+=v;
+      if(c.code.startsWith('BKA')) back+=v;
+      if(c.code.startsWith('DIA')) disp+=v;
+      if(c.code.startsWith('FOA')) fw+=v;
+    });
+  });
+  const f=(v,u)=>v?r2(v)+' '+u:'— '+u;
+  document.getElementById('ts-exc').textContent=f(exc,'m³');
+  document.getElementById('ts-conc').textContent=f(conc,'m³');
+  document.getElementById('ts-rebar').textContent=f(rebar,'Ton');
+  document.getElementById('ts-back').textContent=f(back,'m³');
+  document.getElementById('ts-disp').textContent=f(disp,'m³');
+  ['m-exc','m-conc','m-rebar','m-back','m-disp','m-fw'].forEach((id,i)=>{
+    document.getElementById(id).textContent=[exc,conc,rebar,back,disp,fw].map(r2)[i]||'—';
+  });
+}
+
+// ============================================================
+// DEFAULT 코드 탭
+// ============================================================
+function renderDefaultCodeRows(){
+  const el = document.getElementById('defaultCodeRows');
+  const items = Object.keys(DEFAULT_CODE_LABELS);
+  el.innerHTML = items.map(lbl=>{
+    const opts = codes.map(c=>`<option value="${c.code}" ${(defCodes[lbl]===c.code||(!defCodes[lbl]&&DEFAULT_CODE_LABELS[lbl]===c.desc))?'selected':''}>${c.code} — ${c.desc.slice(0,60)}</option>`).join('');
+    const checked = defCodes[lbl+'_active']!==false;
+    return `<div class="def-row">
+      <div class="def-label">${lbl}</div>
+      <select class="def-select" onchange="saveDefCode('${lbl}',this.value)">${opts}</select>
+      <input type="checkbox" class="def-check active-toggle" ${checked?'checked':''} onchange="saveDefActive('${lbl}',this.checked)" title="적용">
+    </div>`;
+  }).join('');
+}
+
+function saveDefCode(lbl, val){ defCodes[lbl]=val; localStorage.setItem('bq_v4_def',JSON.stringify(defCodes)); }
+function saveDefActive(lbl, val){ defCodes[lbl+'_active']=val; localStorage.setItem('bq_v4_def',JSON.stringify(defCodes)); }
+
+// ============================================================
+// BQ 코드 관리
+// ============================================================
+function renderCodeTable(){
+  const q=(document.getElementById('codeSearch')?.value||'').toLowerCase();
+  // 변수 배지
+  const vb=document.getElementById('varBadges');
+  if(vb&&!vb.children.length) vb.innerHTML=VARS.map(v=>`<span class="var-badge" onclick="insertVar('${v}')">${v}</span>`).join('');
+
+  const sections=[...new Set(codes.map(c=>c.section||'기타'))];
+  let html=`<div class="code-table-wrap"><table class="code-table">
+  <thead><tr><th style="width:130px">BQ Code</th><th>Description</th><th style="width:220px">Formula</th>
+  <th style="width:50px">Unit</th><th style="width:42px">활성</th><th style="width:80px"></th></tr></thead><tbody>`;
+  sections.forEach(sec=>{
+    const sc=codes.filter(c=>(c.section||'기타')===sec&&(!q||c.code.toLowerCase().includes(q)||c.desc.toLowerCase().includes(q)));
+    if(!sc.length) return;
+    html+=`<tr class="sec-row"><td colspan="6">${sec}</td></tr>`;
+    sc.forEach(c=>{
+      const idx=codes.indexOf(c);
+      const sf=c.formula.length>28?c.formula.slice(0,28)+'…':c.formula;
+      html+=`<tr class="${c.custom?'custom-row':''}">
+        <td class="code-cell ${c.custom?'custom':''}">${c.custom?'★ ':''}CIEQ${c.code}</td>
+        <td style="font-size:11px;color:var(--ink-600)">${c.desc}</td>
+        <td style="font-family:var(--mono);font-size:10px;color:var(--ink-400)" title="${c.formula}">${sf}</td>
+        <td style="font-family:var(--mono);font-size:11px;text-align:center">${c.unit}</td>
+        <td style="text-align:center"><input type="checkbox" class="active-toggle" ${c.active?'checked':''} onchange="codes[${idx}].active=this.checked;saveCodes()"></td>
+        <td style="display:flex;gap:3px;justify-content:flex-end">
+          <button class="row-btn" onclick="openEdit(${idx})">수정</button>
+          ${c.custom?`<button class="row-btn del" onclick="delCode(${idx})">삭제</button>`:''}
+        </td>
+      </tr>`;
+    });
+  });
+  html+='</tbody></table></div>';
+  document.getElementById('codeTableWrap').innerHTML=html;
+}
+
+function addCode(){
+  const code=document.getElementById('nc-code').value.trim();
+  const desc=document.getElementById('nc-desc').value.trim();
+  const unit=document.getElementById('nc-unit').value.trim();
+  const formula=document.getElementById('nc-formula').value.trim();
+  if(!code||!desc||!unit||!formula){showToast('모든 항목 입력 필요');return;}
+  let section='기타';
+  if(/^EXA|^DIA|^BKA|^FIA/.test(code)) section='Earthwork';
+  else if(/^COA|^LCA|^C1A/.test(code)) section='Concrete';
+  else if(/^REA|^R1A|^R2A/.test(code)) section='Reinforcement';
+  else if(/^FOA|^FAA/.test(code)) section='Formwork';
+  else if(/^PCA|^GRA|^JOA|^MTA/.test(code)) section='Protection & Misc';
+  const existing=codes.findIndex(c=>c.code===code);
+  if(existing>=0){ codes[existing]={...codes[existing],desc,unit,formula}; showToast('수정됨'); }
+  else { codes.push({code,desc,formula,unit,active:true,custom:true,section}); showToast('추가됨'); }
+  saveCodes(); renderCodeTable(); renderDefaultCodeRows();
+  ['nc-code','nc-desc','nc-unit','nc-formula'].forEach(id=>document.getElementById(id).value='');
+}
+
+function delCode(idx){
+  if(!codes[idx].custom){showToast('기본 코드 삭제 불가');return;}
+  if(!confirm('삭제?'))return;
+  codes.splice(idx,1); saveCodes(); renderCodeTable();
+}
+
+function openEdit(idx){
+  const c=codes[idx];
+  document.getElementById('edit-code').value=c.code;
+  document.getElementById('edit-desc').value=c.desc;
+  document.getElementById('edit-unit').value=c.unit;
+  document.getElementById('edit-formula').value=c.formula;
+  editingIdx=idx;
+  document.getElementById('editModal').classList.remove('hidden');
+}
+function closeEditModal(){document.getElementById('editModal').classList.add('hidden');editingIdx=null;}
+function saveEdit(){
+  if(editingIdx===null)return;
+  const c=codes[editingIdx];
+  c.code=document.getElementById('edit-code').value.trim();
+  c.desc=document.getElementById('edit-desc').value.trim();
+  c.unit=document.getElementById('edit-unit').value.trim();
+  c.formula=document.getElementById('edit-formula').value.trim();
+  saveCodes(); renderCodeTable(); closeEditModal(); showToast('저장됨');
+}
+
+function insertVar(v){
+  const t=document.getElementById('nc-formula');
+  if(document.activeElement===document.getElementById('edit-formula')){
+    const ef=document.getElementById('edit-formula');
+    const s=ef.selectionStart||0;
+    ef.value=ef.value.slice(0,s)+v+ef.value.slice(ef.selectionEnd||s);
+    ef.setSelectionRange(s+v.length,s+v.length); ef.focus();
+  } else {
+    t.value+=(t.value?'*':'')+v; t.focus();
+  }
+}
+
+function exportCodes(){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(codes,null,2)],{type:'application/json'}));
+  a.download=`BQ_Codes_${new Date().toISOString().slice(0,10)}.json`; a.click();
+  showToast('코드 JSON 저장');
+}
+function onImportCodes(inp){
+  const f=inp.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=e=>{try{codes=JSON.parse(e.target.result);saveCodes();renderCodeTable();showToast('코드 불러옴');}catch{showToast('JSON 오류');}};
+  r.readAsText(f);
+}
+function resetCodes(){
+  if(!confirm('기본값으로 복원?'))return;
+  codes=DEFAULT_CODES.map(c=>({...c,custom:false}));saveCodes();renderCodeTable();showToast('복원됨');
+}
+
+// ============================================================
+// TAB 전환
+// ============================================================
+function switchTab(name, btn){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  ['tab-calc','tab-defaults','tab-codes'].forEach(id=>{
+    document.getElementById(id).classList.toggle('hidden',!id.includes(name));
+  });
+  if(name==='codes') renderCodeTable();
+  if(name==='defaults') renderDefaultCodeRows();
+}
+
+// ============================================================
+// DRAG & DROP (전체 페이지)
+// ============================================================
+document.addEventListener('dragenter', e=>{
+  if([...e.dataTransfer.items].some(i=>i.kind==='file')){
+    document.getElementById('dragOverlay').style.display='flex';
+  }
+});
+document.getElementById('dragOverlay').addEventListener('dragleave', e=>{
+  if(!e.relatedTarget||!document.getElementById('dragOverlay').contains(e.relatedTarget))
+    document.getElementById('dragOverlay').style.display='none';
+});
+document.getElementById('dragOverlay').addEventListener('dragover', e=>e.preventDefault());
+document.getElementById('dragOverlay').addEventListener('drop', e=>{
+  e.preventDefault();
+  document.getElementById('dragOverlay').style.display='none';
+  const files=Array.from(e.dataTransfer.files).filter(f=>f.type.startsWith('image/')||f.type==='application/pdf');
+  if(files.length) handleFiles(files);
+  else showToast('PDF 또는 이미지 파일만 지원합니다');
+});
+
+// upload zone
+const uz=document.getElementById('uploadZone');
+uz.addEventListener('dragover',e=>{e.preventDefault();uz.classList.add('drag');});
+uz.addEventListener('dragleave',()=>uz.classList.remove('drag'));
+uz.addEventListener('drop',e=>{e.preventDefault();uz.classList.remove('drag');handleFiles(e.dataTransfer.files);});
+
+// ============================================================
+// EXPORT / IMPORT
+// ============================================================
+function exportCSV(){
+  if(!structures.length){showToast('데이터 없음');return;}
+  let csv='구조물,BQ Code,Description,Unit,Unit BM,N,Total BM\n';
+  structures.filter(s=>s.status==='done').forEach(s=>{
+    const {results,N}=calcStruct(s);
+    codes.filter(c=>c.active).forEach(c=>{
+      const v=results[c.code];
+      if(v!==null&&v!==undefined)
+        csv+=`"${s.name}","${c.code}","${c.desc}","${c.unit}",${v!==null?r3(v/N):0},${N},${v||0}\n`;
+    });
+  });
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}));
+  a.download=`BM_Summary_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+  showToast('CSV 완료');
+}
+function exportExcel(){exportCSV();}
+function exportJSON(){
+  const data={structures:structures.map(s=>({id:s.id,name:s.name,file:s.file,dims:s.dims,dimOverrides:s.dimOverrides,bqOverrides:s.bqOverrides})),codes,criteria};
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));
+  a.download=`BQ_Project_${new Date().toISOString().slice(0,10)}.json`; a.click();
+  showToast('프로젝트 JSON 저장');
+}
+function importJSON(){document.getElementById('importJSONInput').click();}
+function onImportJSON(inp){
+  const f=inp.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=e=>{
+    try{
+      const d=JSON.parse(e.target.result);
+      if(d.structures) structures=d.structures.map(s=>({...s,status:'done'}));
+      if(d.codes) codes=d.codes;
+      if(d.criteria) criteria=d.criteria;
+      saveCodes(); selId=structures[0]?.id||null;
+      renderStructList(); renderCalcTab(); updateSummary();
+      showToast('프로젝트 불러옴');
+    }catch{showToast('JSON 오류');}
+  };
+  r.readAsText(f);
+}
+
+function showToast(m){
+  const t=document.getElementById('toast');
+  t.textContent=m; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+// criteria 값을 input에 반영
+['HPP','FGL'].forEach(k=>{ const el=document.getElementById('d-'+k); if(el) el.value=criteria[k]||913.5; });
+if(document.getElementById('d-PAV')) document.getElementById('d-PAV').value=(criteria.PAV||0.3)*1000;
+if(document.getElementById('d-WP'))  document.getElementById('d-WP').value=(criteria.WP||0.5)*1000;
+if(document.getElementById('d-S'))   document.getElementById('d-S').value=criteria.S||0.3;
+if(document.getElementById('d-OA'))  document.getElementById('d-OA').value=(criteria.OA||0.1)*1000;
+if(document.getElementById('d-L'))   document.getElementById('d-L').value=(criteria.L||0.075)*1000;
+if(document.getElementById('d-C'))   document.getElementById('d-C').value=(criteria.C||0.15)*1000;
+if(document.getElementById('d-RE'))  document.getElementById('d-RE').value=criteria.RE||0.1;
+if(document.getElementById('d-G'))   document.getElementById('d-G').value=(criteria.G||0.025)*1000;
+
+renderStructList();
+renderCodeTable();
+renderDefaultCodeRows();
+</script>
+</body>
+</html>
